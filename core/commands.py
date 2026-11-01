@@ -21,9 +21,7 @@ def _activate_conversation(lewis, conversation):
 
     set_active_conversation(conversation_id)
     lewis.active_conversation_id = conversation_id
-    lewis.active_project = (
-        conversation.get("project") or lewis.active_project
-    )
+    lewis.active_project = conversation.get("project")
 
 
 def handle_deterministic_command(lewis, user_input):

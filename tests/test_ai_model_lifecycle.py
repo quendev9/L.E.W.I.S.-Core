@@ -2,7 +2,7 @@ import os
 import unittest
 import weakref
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from ai import model
 from core.identity import LEWIS_IDENTITY
@@ -55,8 +55,18 @@ class GeminiClientLifecycleTests(unittest.TestCase):
     def setUp(self):
         model.close_gemini()
         _FakeClient.instances = []
-        self.environment = patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"})
+        self.environment = patch.dict(
+            os.environ,
+            {
+                "AI_PROVIDER": "gemini",
+                "GEMINI_API_KEY": "test-key",
+                "GEMINI_MODEL": "gemini-3.6-flash",
+            },
+        )
         self.environment.start()
+        self.selection = patch.object(model, "_selected_ai_model", None)
+        self.selection.start()
+        self.addCleanup(self.selection.stop)
         self.client_factory = patch.object(model.genai, "Client", _FakeClient)
         self.client_factory.start()
         self.addCleanup(self.client_factory.stop)
@@ -138,6 +148,30 @@ class GeminiClientLifecycleTests(unittest.TestCase):
         self.assertEqual(_FakeClient.instances[0].close_calls, 1)
         self.assertIsNone(model._client)
         self.assertIsNone(model._chat)
+
+    def test_connection_test_uses_a_temporary_non_conversation_request(self):
+        response = SimpleNamespace(text="OK")
+        generate_content = Mock(return_value=response)
+        close = Mock()
+        client = SimpleNamespace(
+            models=SimpleNamespace(generate_content=generate_content),
+            close=close,
+        )
+
+        with patch.object(model.genai, "Client", return_value=client):
+            result = model.test_ai_connection()
+
+        self.assertEqual(
+            result,
+            {"provider": "gemini", "model": "gemini-3.6-flash"},
+        )
+        generate_content.assert_called_once()
+        self.assertEqual(
+            generate_content.call_args.kwargs["contents"],
+            "LEWIS connection check. Reply with the word OK.",
+        )
+        close.assert_called_once_with()
+        self.assertIsNone(model._client)
 
 
 if __name__ == "__main__":

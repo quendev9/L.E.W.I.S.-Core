@@ -36,6 +36,14 @@ class MemoryStorageError(Exception):
     """Raised when memory data cannot be safely loaded or persisted."""
 
 
+class MemoryValidationError(ValueError):
+    """Raised when a requested memory edit does not satisfy the schema."""
+
+
+class MemoryNotFoundError(LookupError):
+    """Raised when a requested memory ID does not exist."""
+
+
 def _timestamp():
     return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace(
         "+00:00", "Z"
@@ -377,6 +385,78 @@ def remember(key, value, category="other", importance=0.5, status="stated"):
 
     memory["memories"].append(new_memory)
     save_memory(memory)
+
+
+def update_memory(memory_id, updates):
+    if not isinstance(memory_id, str) or not memory_id.strip():
+        raise MemoryValidationError("A valid memory ID is required.")
+    if not isinstance(updates, dict) or not updates:
+        raise MemoryValidationError("At least one memory field is required.")
+
+    allowed_fields = {"subject", "key", "value", "category", "status", "importance"}
+    if set(updates) - allowed_fields:
+        raise MemoryValidationError("Unsupported memory field.")
+
+    memory = load_memory()
+    for record in memory["memories"]:
+        if record["id"] != memory_id:
+            continue
+
+        updated = dict(record)
+        for field in ("subject", "key", "value", "category", "status"):
+            if field not in updates:
+                continue
+            value = updates[field]
+            if not isinstance(value, str) or not value.strip():
+                raise MemoryValidationError(
+                    f"Memory {field} must be non-empty text."
+                )
+            value = value.strip()
+            if len(value) > 2000:
+                raise MemoryValidationError(
+                    f"Memory {field} is too long."
+                )
+            if field == "status" and value not in MEMORY_STATUSES:
+                raise MemoryValidationError(
+                    f"Unsupported memory status '{value}'."
+                )
+            updated[field] = value
+
+        if "importance" in updates:
+            importance = updates["importance"]
+            if (
+                isinstance(importance, bool)
+                or not isinstance(importance, (int, float))
+                or not math.isfinite(importance)
+                or not 0 <= importance <= 1
+            ):
+                raise MemoryValidationError(
+                    "Memory importance must be between 0 and 1."
+                )
+            updated["importance"] = importance
+
+        if "key" in updates:
+            updated["predicate"] = updated["key"]
+
+        previous_status = record.get("status", "stated")
+        if (
+            updated["value"] != record["value"]
+            or updated.get("status", previous_status) != previous_status
+        ):
+            history = list(record.get("history", []))
+            history.append({
+                "value": record["value"],
+                "status": previous_status,
+                "updated_at": record["updated_at"],
+            })
+            updated["history"] = history
+
+        updated["updated_at"] = _timestamp()
+        memory["memories"][memory["memories"].index(record)] = updated
+        save_memory(memory)
+        return updated
+
+    raise MemoryNotFoundError("Memory not found.")
 
 
 def recall(key):

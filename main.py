@@ -1,8 +1,16 @@
 
 from ai.model import close_gemini
 from core.lewis import Lewis
-from voice.speech_input import listen_once
-from voice.speech_output import speak
+
+try:
+    from voice.speech_input import listen_once
+except Exception:  # pragma: no cover - optional dependency
+    listen_once = None
+
+try:
+    from voice.speech_output import speak
+except Exception:  # pragma: no cover - optional dependency
+    speak = None
 
 
 def main():
@@ -23,12 +31,17 @@ def main():
         while True:
             try:
                 if mode == "2":
-                    input("\nPress Enter to talk, or type 'exit' to quit: ")
+                    if listen_once is None:
+                        print("Voice mode is unavailable in this environment.")
+                        mode = "1"
+                        user_input = input("\nYOU: ")
+                    else:
+                        input("\nPress Enter to talk, or type 'exit' to quit: ")
 
-                    # Check for exit before opening the microphone.
-                    # The prompt accepts Enter or text; typing exit quits.
-                    # (See the note below for the improved prompt.)
-                    user_input = listen_once()
+                        # Check for exit before opening the microphone.
+                        # The prompt accepts Enter or text; typing exit quits.
+                        # (See the note below for the improved prompt.)
+                        user_input = listen_once()
                 else:
                     user_input = input("\nYOU: ")
 
@@ -47,7 +60,7 @@ def main():
                 response = lewis.process(user_input)
                 print(f"LEWIS: {response}")
 
-                if mode == "2":
+                if mode == "2" and speak is not None:
                     speak(response)
 
             except KeyboardInterrupt:

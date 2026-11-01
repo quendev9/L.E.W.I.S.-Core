@@ -71,9 +71,7 @@ class Lewis:
             )
             self.active_conversation_id = conversation["id"]
         else:
-            self.active_project = (
-                conversation.get("project") or self.active_project
-            )
+            self.active_project = conversation.get("project")
 
     def _record_message(
         self,

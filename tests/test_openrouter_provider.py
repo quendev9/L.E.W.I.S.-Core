@@ -136,6 +136,22 @@ class OpenRouterProviderTests(unittest.TestCase):
 
         request.assert_not_called()
 
+    def test_connection_test_sends_fixed_probe_to_selected_provider(self):
+        os.environ["OPENROUTER_API_KEY"] = "test-openrouter-key"
+        model.set_ai_selection("openrouter", "openrouter/free")
+
+        with patch.object(model, "ask_openrouter", return_value="OK") as probe:
+            result = model.test_ai_connection()
+
+        self.assertEqual(
+            result,
+            {"provider": "openrouter", "model": "openrouter/free"},
+        )
+        probe.assert_called_once_with(
+            "LEWIS connection check. Reply with the word OK.",
+            model_name="openrouter/free",
+        )
+
     def test_invalid_key_http_error_is_provider_specific(self):
         api_key = "invalid-openrouter-key"
         os.environ["OPENROUTER_API_KEY"] = api_key

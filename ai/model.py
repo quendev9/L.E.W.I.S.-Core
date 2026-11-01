@@ -3,13 +3,38 @@ import json
 import os
 import re
 import threading
+from types import SimpleNamespace
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-from google.genai.errors import APIError
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    def load_dotenv():
+        return False
+
+try:
+    from google import genai
+    from google.genai import types
+    from google.genai.errors import APIError
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    class _FallbackGenerateContentConfig:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    class _FallbackGenAI:
+        @staticmethod
+        def Client(*args, **kwargs):
+            raise RuntimeError("google-genai is not installed")
+
+    genai = _FallbackGenAI()
+    types = SimpleNamespace(
+        GenerateContentConfig=_FallbackGenerateContentConfig,
+    )
+
+    class APIError(RuntimeError):
+        pass
 
 from core.identity import LEWIS_IDENTITY
 
@@ -313,7 +338,6 @@ def ask_groq(message, conversation_id=None, model_name=None):
                 },
                 method="POST",
             )
-
             try:
                 with urlopen(request, timeout=60) as response:
                     payload = json.loads(
@@ -380,7 +404,6 @@ def ask_openrouter(message, conversation_id=None, model_name=None):
             },
             method="POST",
         )
-
         try:
             with urlopen(request, timeout=60) as response:
                 payload = json.loads(response.read().decode("utf-8"))
@@ -556,6 +579,49 @@ def ask_ai(message, conversation_id=None):
         conversation_id,
         selection["model"],
     )
+
+
+def test_ai_connection():
+    """Send a fixed, minimal probe to the currently selected provider."""
+    selection = get_ai_selection()
+    available = get_available_ai_models()
+    if not any(
+        item["provider"] == selection["provider"]
+        and item["model"] == selection["model"]
+        for item in available
+    ):
+        raise RuntimeError("The selected AI provider is not configured.")
+
+    prompt = "LEWIS connection check. Reply with the word OK."
+    provider = selection["provider"]
+    if provider == "gemini":
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("The selected AI provider is not configured.")
+        client = genai.Client(api_key=api_key)
+        try:
+            response = client.models.generate_content(
+                model=selection["model"],
+                contents=prompt,
+                config=_gemini_system_config(),
+            )
+            content = getattr(response, "text", None)
+        finally:
+            client.close()
+    elif provider == "groq":
+        content = ask_groq(prompt, model_name=selection["model"])
+    elif provider == "openrouter":
+        content = ask_openrouter(prompt, model_name=selection["model"])
+    else:
+        raise ValueError(f"Unsupported AI provider: {provider}")
+
+    if not isinstance(content, str) or not content.strip():
+        raise RuntimeError("The selected provider returned no response.")
+
+    return {
+        "provider": provider,
+        "model": selection["model"],
+    }
 
 
 def is_transient_api_error(error):

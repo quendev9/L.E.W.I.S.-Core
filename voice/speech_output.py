@@ -4,12 +4,28 @@ import re
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 
-import pyttsx3
-from dotenv import load_dotenv
-from fishaudio import FishAudio
-from fishaudio.utils import save
+try:
+    import pyttsx3
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    pyttsx3 = None
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    def load_dotenv():
+        return False
+
+try:
+    from fishaudio import FishAudio
+    from fishaudio.utils import save
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    FishAudio = None
+
+    def save(*args, **kwargs):
+        raise RuntimeError("fishaudio is unavailable")
 
 from core.event_logger import log_event
 
@@ -25,9 +41,74 @@ _speech_lock = threading.Lock()
 _stop_requested = threading.Event()
 
 
+def _speech_cancelled(cancel_event=None):
+    return _stop_requested.is_set() or bool(
+        cancel_event and cancel_event.is_set()
+    )
+
+
+def _mci_command(command):
+    from ctypes import create_unicode_buffer, windll
+
+    output = create_unicode_buffer(256)
+    error_code = int(
+        windll.winmm.mciSendStringW(command, output, len(output), 0)
+    )
+
+    if error_code:
+        error = create_unicode_buffer(256)
+        windll.winmm.mciGetErrorStringW(error_code, error, len(error))
+        raise RuntimeError(
+            error.value or f"Windows audio command failed ({error_code})."
+        )
+
+    return output.value
+
+
+def _play_fish_audio(audio_path, cancel_event=None, on_playback_start=None):
+    if os.name != "nt":
+        from playsound import playsound
+
+        if on_playback_start:
+            on_playback_start()
+        playsound(str(audio_path))
+        return not _speech_cancelled(cancel_event)
+
+    alias = f"lewis_{uuid.uuid4().hex}"
+    opened = False
+
+    try:
+        _mci_command(f'open "{audio_path}" alias {alias}')
+        opened = True
+        _mci_command(f"set {alias} time format milliseconds")
+
+        if _speech_cancelled(cancel_event):
+            return False
+
+        _mci_command(f"play {alias}")
+        if on_playback_start:
+            on_playback_start()
+
+        while True:
+            if _speech_cancelled(cancel_event):
+                _mci_command(f"stop {alias}")
+                return False
+
+            if _mci_command(f"status {alias} mode").lower() == "stopped":
+                return True
+
+            time.sleep(0.05)
+    finally:
+        if opened:
+            _mci_command(f"close {alias}")
+
+
 def _get_engine():
     """Initialize the local fallback voice when needed."""
     global _engine
+
+    if pyttsx3 is None:
+        raise RuntimeError("pyttsx3 is unavailable")
 
     if _engine is None:
         _engine = pyttsx3.init()
@@ -40,6 +121,9 @@ def _get_engine():
 def _get_fish_client():
     """Create the Fish Audio client using the key stored in .env."""
     global _fish_client
+
+    if FishAudio is None:
+        raise RuntimeError("Fish Audio SDK is unavailable")
 
     if _fish_client is None:
         api_key = os.getenv("FISH_API_KEY")
@@ -138,25 +222,14 @@ def _speak_fish(text, cancel_event=None, on_playback_start=None):
             f"{(time.perf_counter() - generation_started) * 1000:.0f} ms"
         )
 
-        if _stop_requested.is_set() or (
-            cancel_event and cancel_event.is_set()
-        ):
+        if _speech_cancelled(cancel_event):
             return
 
-        # Plays through the system's default audio player.
-        # Install playsound if this import is unavailable.
-        from playsound import playsound
-
-        if not _stop_requested.is_set() and not (
-            cancel_event and cancel_event.is_set()
-        ):
-            if on_playback_start:
-                on_playback_start()
-            log_event(
-                "VOICE PLAYBACK STARTUP: "
-                f"{(time.perf_counter() - generation_started) * 1000:.0f} ms"
-            )
-            playsound(str(audio_path))
+        log_event(
+            "VOICE PLAYBACK STARTUP: "
+            f"{(time.perf_counter() - generation_started) * 1000:.0f} ms"
+        )
+        _play_fish_audio(audio_path, cancel_event, on_playback_start)
     finally:
         try:
             audio_path.unlink(missing_ok=True)
@@ -208,9 +281,7 @@ def speak(text, cancel_event=None, on_playback_start=None):
                 log_event("VOICE PLAYBACK FAILED")
                 return False
 
-        return not _stop_requested.is_set() and not (
-            cancel_event and cancel_event.is_set()
-        )
+        return not _speech_cancelled(cancel_event)
 
 
 def stop_speaking():

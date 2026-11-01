@@ -153,6 +153,52 @@ def rename_conversation(conversation_id, new_title):
             return conversation
     raise ValueError(f"Could not find conversation '{conversation_id}'.")
 
+
+def update_conversation_metadata(conversation_id, updates):
+    if not isinstance(conversation_id, str) or not conversation_id.strip():
+        raise ValueError("A valid conversation ID is required.")
+    if not isinstance(updates, dict) or not updates:
+        raise ValueError("At least one conversation setting is required.")
+
+    allowed_fields = {"pinned", "folder", "project"}
+    if set(updates) - allowed_fields:
+        raise ValueError("Unsupported conversation setting.")
+
+    normalized_updates = {}
+    if "pinned" in updates:
+        if not isinstance(updates["pinned"], bool):
+            raise ValueError("Pinned must be true or false.")
+        normalized_updates["pinned"] = updates["pinned"]
+
+    for field in ("folder", "project"):
+        if field not in updates:
+            continue
+        value = updates[field]
+        if field == "project" and value is None:
+            normalized_updates[field] = None
+            continue
+        if not isinstance(value, str):
+            raise ValueError(f"{field.capitalize()} must be text.")
+        value = value.strip()
+        limit = 80 if field == "folder" else 120
+        if len(value) > limit:
+            raise ValueError(
+                f"{field.capitalize()} must be {limit} characters or fewer."
+            )
+        normalized_updates[field] = value or None
+
+    data = load_conversations()
+    for conversation in data.get("conversations", []):
+        if conversation.get("id") != conversation_id:
+            continue
+        conversation.update(normalized_updates)
+        conversation["updated_at"] = _utc_now()
+        save_conversations(data)
+        return _normalize_conversation(conversation)
+
+    raise ValueError(f"Could not find conversation '{conversation_id}'.")
+
+
 def delete_conversation(conversation_id):
     if not isinstance(conversation_id, str) or not conversation_id.strip():
         raise ValueError("A valid conversation ID is required.")

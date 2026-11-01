@@ -3,9 +3,36 @@ import json
 import queue
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
-import sounddevice as sd
-from vosk import Model, KaldiRecognizer
+try:
+    import sounddevice as sd
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    class _MissingInputStream:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("sounddevice is unavailable")
+
+    sd = SimpleNamespace(RawInputStream=_MissingInputStream)
+
+try:
+    from vosk import Model, KaldiRecognizer
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    class _MissingModel:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("vosk model is unavailable")
+
+    class _MissingKaldiRecognizer:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("vosk is unavailable")
+
+        def AcceptWaveform(self, *args, **kwargs):
+            raise RuntimeError("vosk is unavailable")
+
+        def FinalResult(self):
+            raise RuntimeError("vosk is unavailable")
+
+    Model = _MissingModel
+    KaldiRecognizer = _MissingKaldiRecognizer
 
 from core.event_logger import log_event
 
@@ -43,11 +70,13 @@ def listen_once(
     stop_event=None,
     interrupt_event=None,
     on_capture_start=None,
+    return_on_silence=True,
 ):
     """Listen for speech, checking session events between audio queue waits.
 
-    Device startup and Vosk model loading are blocking operations; stop is
-    observed once capture is active, at most one queue wait later.
+    With return_on_silence=False, accepted segments are collected until stop
+    or timeout for push-to-talk capture. Device startup and model loading are
+    blocking; stop is observed at most one queue wait after capture starts.
     """
     audio_queue = queue.Queue()
     recognizer = KaldiRecognizer(_get_model(), SAMPLE_RATE)
@@ -61,6 +90,7 @@ def listen_once(
     print("Listening... Speak now.")
 
     deadline = time.monotonic() + timeout
+    recognized_segments = []
 
     if stop_event and stop_event.is_set():
         return ""
@@ -103,14 +133,19 @@ def listen_once(
                     text = result.get("text", "").strip()
 
                     if text:
-                        return text
+                        if return_on_silence:
+                            return text
+                        recognized_segments.append(text)
 
             recognition_started = time.perf_counter()
             result = json.loads(recognizer.FinalResult())
             transcription_seconds += (
                 time.perf_counter() - recognition_started
             )
-            return result.get("text", "").strip()
+            final_segment = result.get("text", "").strip()
+            if final_segment:
+                recognized_segments.append(final_segment)
+            return " ".join(recognized_segments)
     finally:
         total_seconds = time.perf_counter() - capture_started
         log_event(

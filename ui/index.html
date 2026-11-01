@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#080a0c">
+    <meta name="theme-color" content="#F5F6F7">
     <title>LEWIS HUD</title>
     <link rel="icon" type="image/svg+xml" href="lewis-logo.svg">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <main class="hud">
+<body class="focus-mode-active">
+    <main class="hud left-panel-collapsed focus-mode">
         <header class="top-bar">
             <a class="brand" href="#home" aria-label="LEWIS home">
                 <span class="brand-mark" aria-hidden="true">
@@ -39,7 +39,7 @@
                     </span>
                 </span>
 
-                <span class="top-status-item">
+                <span class="top-status-item memory-status-item">
                     <span class="status-icon" aria-hidden="true">▤</span>
                     <span>
                         <strong id="memoryStatus">CHECKING</strong>
@@ -55,14 +55,44 @@
                     </span>
                 </span>
 
+                <span class="top-status-item">
+                    <span class="status-icon" aria-hidden="true">⌁</span>
+                    <span>
+                        <strong id="activityStatus">CHECKING</strong>
+                        <small>LEWIS activity</small>
+                    </span>
+                </span>
+
+                <span class="top-status-item workspace-status">
+                    <span class="status-icon" aria-hidden="true">▣</span>
+                    <span>
+                        <strong id="activeProjectTop">No project</strong>
+                        <small>Active workspace</small>
+                    </span>
+                </span>
+
                 <time class="clock" id="systemClock">--:--<small>---</small></time>
             </div>
 
             <nav class="panel-controls" aria-label="Panel visibility">
                 <button
+                    id="toggleFocusMode"
+                    type="button"
+                    aria-pressed="true"
+                    aria-label="Toggle focus mode"
+                >FULL</button>
+
+                <button
+                    id="toggleTheme"
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="Switch to dark theme"
+                >DARK</button>
+
+                <button
                     id="toggleLeftPanel"
                     type="button"
-                    aria-expanded="true"
+                    aria-expanded="false"
                     aria-label="Toggle navigation panel"
                 >NAV</button>
 
@@ -85,7 +115,7 @@
         <section class="workspace">
             <aside class="left-panel" aria-label="Main navigation">
                 <nav class="main-nav">
-                    <a class="nav-item active" href="#home" aria-current="page">
+                    <a class="nav-item active" href="#home" aria-current="page" aria-label="Home" title="Home">
                         <span class="nav-icon" aria-hidden="true">⌂</span>
                         <span>
                             <strong>Home</strong>
@@ -99,6 +129,8 @@
                         id="openConversationsButton"
                         aria-controls="conversationDrawer"
                         aria-expanded="false"
+                        aria-label="Conversations"
+                        title="Conversations"
                     >
                         <span class="nav-icon" aria-hidden="true">◌</span>
                         <span>
@@ -107,19 +139,43 @@
                         </span>
                     </a>
 
-                    <a class="nav-item" href="#memory-activity">
+                    <a class="nav-item" href="#memory" data-workspace="memory" aria-label="Memory" title="Memory">
                         <span class="nav-icon" aria-hidden="true">▤</span>
                         <span>
                             <strong>Memory</strong>
-                            <small>Facts, projects &amp; knowledge</small>
+                            <small>Stored facts &amp; knowledge</small>
                         </span>
                     </a>
 
-                    <a class="nav-item" href="#modelSettings">
+                    <a class="nav-item" href="#projects" data-workspace="projects" aria-label="Projects" title="Projects">
+                        <span class="nav-icon" aria-hidden="true">▧</span>
+                        <span>
+                            <strong>Projects</strong>
+                            <small>Saved project context</small>
+                        </span>
+                    </a>
+
+                    <button class="nav-item" type="button" disabled aria-label="Tools unavailable" title="Tool execution is not connected">
+                        <span class="nav-icon" aria-hidden="true">⌘</span>
+                        <span>
+                            <strong>Tools</strong>
+                            <small>Not connected</small>
+                        </span>
+                    </button>
+
+                    <a class="nav-item" href="#models" data-workspace="models" aria-label="AI Models" title="AI Models">
+                        <span class="nav-icon" aria-hidden="true">◈</span>
+                        <span>
+                            <strong>AI Models</strong>
+                            <small>Provider &amp; model</small>
+                        </span>
+                    </a>
+
+                    <a class="nav-item" href="#settings" data-workspace="settings" aria-label="Settings" title="Settings">
                         <span class="nav-icon" aria-hidden="true">⚙</span>
                         <span>
                             <strong>Settings</strong>
-                            <small>Preferences &amp; configuration</small>
+                            <small>Voice preferences</small>
                         </span>
                     </a>
                 </nav>
@@ -138,7 +194,7 @@
                 <div class="hero">
                     <div class="greeting">
                         <span class="eyebrow">YOUR ASSISTANT</span>
-                        <h1>Good day,<br><span>Quen.</span></h1>
+                        <h1>Good day,<br><span>Boss.</span></h1>
                         <p>
                             I'm LEWIS. What would you like<br class="desktop-break">
                             to work on today?
@@ -278,11 +334,32 @@
                         >NEW</button>
 
                         <button
+                            id="focusVoiceSessionButton"
+                            class="expand-chat-button focus-voice-session-button"
+                            type="button"
+                            data-voice-toggle="true"
+                            aria-label="Start a continuous voice session"
+                            aria-pressed="false"
+                            title="Start a continuous voice session"
+                            disabled
+                        >
+                            <span aria-hidden="true">◉</span>
+                            <span class="voice-session-button-label">VOICE</span>
+                        </button>
+
+                        <button
                             id="expandChatButton"
                             class="expand-chat-button"
                             type="button"
                             aria-expanded="false"
                         >EXPAND</button>
+
+                        <button
+                            id="openFocusHistoryButton"
+                            class="expand-chat-button focus-history-button"
+                            type="button"
+                            aria-label="Open conversation history"
+                        >HISTORY</button>
                     </div>
 
                     <div id="messages" class="messages" aria-live="polite">
@@ -343,6 +420,16 @@
                             <summary>VOICE SETTINGS</summary>
                             <div class="voice-controls">
                                 <button
+                                    id="pushToTalkButton"
+                                    class="voice-button push-to-talk-button"
+                                    type="button"
+                                    aria-label="Press and hold to talk"
+                                    aria-pressed="false"
+                                    title="Press and hold to speak"
+                                    disabled
+                                >HOLD TO TALK</button>
+
+                                <button
                                     id="voiceSessionStart"
                                     class="voice-button"
                                     type="button"
@@ -382,7 +469,53 @@
                 </section>
             </section>
 
-            <aside class="right-panel" aria-label="System diagnostics">
+            <aside class="right-panel" aria-label="System overview and contextual panels">
+                <section class="diagnostic-card system-overview-card" aria-labelledby="systemOverviewTitle">
+                    <div class="card-heading">
+                        <h2 id="systemOverviewTitle">SYSTEM OVERVIEW</h2>
+                        <span id="overviewActivity">CHECKING</span>
+                    </div>
+
+                    <div class="overview-metrics">
+                        <div class="overview-metric">
+                            <span><small>CPU</small><strong id="overviewCpuValue">Unavailable</strong></span>
+                            <span class="overview-meter"><i id="overviewCpuMeter"></i></span>
+                        </div>
+                        <div class="overview-metric">
+                            <span><small>MEMORY</small><strong id="overviewRamValue">Unavailable</strong></span>
+                            <span class="overview-meter"><i id="overviewRamMeter"></i></span>
+                        </div>
+                        <div class="overview-uptime">
+                            <small>UPTIME</small>
+                            <strong id="uptimeValue">Unavailable</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="diagnostic-card active-project-card" aria-labelledby="activeProjectTitle">
+                    <div class="card-heading">
+                        <h2 id="activeProjectTitle">ACTIVE PROJECT</h2>
+                        <span>CONVERSATION CONTEXT</span>
+                    </div>
+                    <div class="project-detail">
+                        <span class="detail-icon" aria-hidden="true">▧</span>
+                        <span>
+                            <strong id="activeProjectName">No project linked</strong>
+                            <small id="activeProjectDetail">This conversation has no project context.</small>
+                        </span>
+                    </div>
+                </section>
+
+                <section class="diagnostic-card recent-activity-card" aria-labelledby="recentActivityTitle">
+                    <div class="card-heading">
+                        <h2 id="recentActivityTitle">RECENT ACTIVITY</h2>
+                        <span id="recentActivityCount">0 EVENTS</span>
+                    </div>
+                    <div class="system-log recent-activity-list" aria-live="polite">
+                        <span class="empty-log">Loading system events</span>
+                    </div>
+                </section>
+
                 <section class="diagnostic-card active-tasks-card">
                     <div class="card-heading">
                         <h2>ACTIVE TASKS</h2>
@@ -497,6 +630,17 @@
                 <span class="conversation-drawer-note">LOCAL HISTORY</span>
             </div>
 
+            <label class="workspace-search conversation-search">
+                <span>SEARCH SAVED MESSAGES</span>
+                <input
+                    id="conversationSearchInput"
+                    type="search"
+                    maxlength="200"
+                    placeholder="Search conversation text..."
+                    autocomplete="off"
+                >
+            </label>
+
             <div
                 id="conversationDrawerStatus"
                 class="conversation-drawer-status"
@@ -507,7 +651,7 @@
             <div
                 id="conversationList"
                 class="conversation-list"
-                aria-label="Saved conversations"
+                aria-label="Saved conversations and search results"
             >
                 <p class="conversation-list-empty">
                     Loading conversations...
@@ -519,6 +663,34 @@
                 long-term memory.
             </p>
         </aside>
+
+        <div id="workspaceBackdrop" class="workspace-backdrop" hidden></div>
+        <section
+            id="workspaceView"
+            class="workspace-view"
+            hidden
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="workspaceTitle"
+            aria-hidden="true"
+            inert
+        >
+            <header class="workspace-view-header">
+                <div>
+                    <span class="eyebrow">LEWIS WORKSPACE</span>
+                    <h2 id="workspaceTitle">WORKSPACE</h2>
+                    <p id="workspaceDescription"></p>
+                </div>
+                <button
+                    id="closeWorkspaceButton"
+                    class="expand-chat-button"
+                    type="button"
+                    aria-label="Return to the HUD"
+                >BACK TO HUD</button>
+            </header>
+            <div id="workspaceStatus" class="workspace-status-message" role="status" aria-live="polite"></div>
+            <div id="workspaceContent" class="workspace-content"></div>
+        </section>
 
         <footer class="telemetry-footer" id="telemetry">
             <section class="telemetry-block system-telemetry">

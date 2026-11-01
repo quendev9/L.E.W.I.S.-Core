@@ -4,6 +4,7 @@ import queue
 import sys
 import threading
 import time
+from urllib.parse import parse_qs, urlsplit
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -33,7 +34,9 @@ from memory.conversations import (
     get_conversation,
     list_conversations,
     rename_conversation,
+    search_messages,
     set_active_conversation,
+    update_conversation_metadata,
 )
 
 try:
@@ -44,10 +47,22 @@ except Exception as error:
     print("LEWIS CORE IMPORT ERROR:", type(error).__name__)
 
 try:
-    from memory.memory import get_all_memories
+    from memory.memory import (
+        MemoryNotFoundError,
+        MemoryStorageError,
+        MemoryValidationError,
+        get_all_memories,
+        update_memory,
+    )
     MEMORY_AVAILABLE = True
 except Exception:
     MEMORY_AVAILABLE = False
+
+try:
+    from memory.project_memory import list_project_memory
+    PROJECT_MEMORY_AVAILABLE = True
+except Exception:
+    PROJECT_MEMORY_AVAILABLE = False
 
 try:
     import ai.model
@@ -60,6 +75,7 @@ try:
     VOICE_INPUT_AVAILABLE = True
 except Exception as error:
     VOICE_INPUT_AVAILABLE = False
+    listen_once = None
     print("LEWIS VOICE INPUT IMPORT ERROR:", type(error).__name__, str(error))
 
 try:
@@ -67,6 +83,9 @@ try:
     VOICE_OUTPUT_AVAILABLE = True
 except Exception as error:
     VOICE_OUTPUT_AVAILABLE = False
+    speak = None
+    stop_speaking = None
+    was_stop_requested = None
     print("LEWIS VOICE OUTPUT IMPORT ERROR:", type(error).__name__, str(error))
 
 
@@ -100,10 +119,46 @@ voice_lock = threading.Lock()
 
 # Protect shared status and voice-result values.
 state_lock = threading.Lock()
+voice_output_lock = threading.Lock()
 
 voice_stop_event = threading.Event()
 voice_interrupt_event = threading.Event()
+push_to_talk_stop_event = threading.Event()
 pending_speech = queue.Queue(maxsize=20)
+active_voice_output_cancel_event = None
+
+
+class _VoiceOutputCancellation:
+    def __init__(self, *events):
+        self.events = events
+
+    def is_set(self):
+        return any(event.is_set() for event in self.events)
+
+
+def _set_active_voice_output_cancel_event(event):
+    global active_voice_output_cancel_event
+
+    with voice_output_lock:
+        active_voice_output_cancel_event = event
+
+
+def _clear_active_voice_output_cancel_event(event):
+    global active_voice_output_cancel_event
+
+    with voice_output_lock:
+        if active_voice_output_cancel_event is event:
+            active_voice_output_cancel_event = None
+
+
+def _request_voice_output_stop():
+    with voice_output_lock:
+        cancel_event = active_voice_output_cancel_event
+        if cancel_event is not None:
+            cancel_event.set()
+
+    if VOICE_OUTPUT_AVAILABLE and stop_speaking is not None:
+        stop_speaking()
 
 server_state = {
     "activity": "READY",
@@ -111,9 +166,12 @@ server_state = {
     "voice_enabled": True,
     "listening": False,
     "speaking": False,
+    "voice_output_pending": False,
     "processing": False,
     "voice_session_active": False,
     "voice_session_stopping": False,
+    "push_to_talk_active": False,
+    "push_to_talk_processing": False,
     "voice_event_id": 0,
     "voice_response_id": 0,
     "last_transcript": "",
@@ -129,9 +187,15 @@ def update_state(**changes):
             server_state["activity"] = "STOPPING"
         elif server_state["speaking"]:
             server_state["activity"] = "SPEAKING"
-        elif server_state["processing"]:
+        elif (
+            server_state["processing"] or
+            server_state["push_to_talk_processing"]
+        ):
             server_state["activity"] = "PROCESSING"
-        elif server_state["listening"]:
+        elif (
+            server_state["listening"] or
+            server_state["push_to_talk_active"]
+        ):
             server_state["activity"] = "LISTENING"
         else:
             server_state["activity"] = "READY"
@@ -216,8 +280,11 @@ def get_status():
         "voice_enabled": state["voice_enabled"],
         "listening": state["listening"],
         "speaking": state["speaking"],
+        "voice_output_pending": state["voice_output_pending"],
         "voice_session_active": state["voice_session_active"],
         "voice_session_stopping": state["voice_session_stopping"],
+        "push_to_talk_active": state["push_to_talk_active"],
+        "push_to_talk_processing": state["push_to_talk_processing"],
         "voice_event_id": state["voice_event_id"],
         "voice_response_id": state["voice_response_id"],
         "last_transcript": state["last_transcript"],
@@ -296,19 +363,38 @@ def _speak_session_text(text, stop_event):
     if stop_event.is_set():
         return
 
+    speech_cancel_event = threading.Event()
+    _set_active_voice_output_cancel_event(speech_cancel_event)
+
     def playback_started():
-        update_state(processing=False, speaking=True)
+        update_state(
+            processing=False,
+            speaking=True,
+            voice_output_pending=False,
+        )
         log_event("VOICE OUTPUT STARTED")
 
     try:
-        update_state(processing=True, speaking=False)
+        update_state(
+            processing=True,
+            speaking=False,
+            voice_output_pending=True,
+        )
         completed = speak(
             text,
-            cancel_event=stop_event,
+            cancel_event=_VoiceOutputCancellation(
+                speech_cancel_event,
+                stop_event,
+            ),
             on_playback_start=playback_started,
         )
     finally:
-        update_state(processing=False, speaking=False)
+        _clear_active_voice_output_cancel_event(speech_cancel_event)
+        update_state(
+            processing=False,
+            speaking=False,
+            voice_output_pending=False,
+        )
 
     if not completed and not stop_event.is_set():
         update_state(last_error="Speech output could not be completed.")
@@ -404,14 +490,17 @@ def voice_worker(stop_event):
         update_state(
             listening=False,
             speaking=False,
+            voice_output_pending=False,
             voice_session_active=False,
             voice_session_stopping=False,
+            push_to_talk_active=False,
+            push_to_talk_processing=False,
         )
         voice_lock.release()
 
 
 def start_voice_listening():
-    if not VOICE_INPUT_AVAILABLE:
+    if not VOICE_INPUT_AVAILABLE or listen_once is None:
         return False, "Voice input modules are unavailable."
 
     if not LEWIS_AVAILABLE or lewis is None:
@@ -432,8 +521,11 @@ def start_voice_listening():
         update_state(
             voice_session_active=True,
             voice_session_stopping=False,
+            push_to_talk_active=False,
+            push_to_talk_processing=False,
             listening=False,
             speaking=False,
+            voice_output_pending=False,
             last_error="",
             last_transcript="",
             last_response="",
@@ -468,9 +560,131 @@ def stop_voice_session():
         server_state["activity"] = "STOPPING"
 
     voice_interrupt_event.set()
-    if VOICE_OUTPUT_AVAILABLE:
-        stop_speaking()
+    _request_voice_output_stop()
     log_event("VOICE SESSION STOP REQUESTED")
+    return True
+
+
+def push_to_talk_worker(stop_event):
+    try:
+        log_event("PUSH-TO-TALK LISTENING STARTED")
+        transcript = listen_once(
+            stop_event=stop_event,
+            on_capture_start=lambda: update_state(listening=True),
+            return_on_silence=False,
+        )
+        transcript = transcript.strip() if transcript else ""
+        update_state(
+            listening=False,
+            push_to_talk_active=False,
+            push_to_talk_processing=True,
+        )
+
+        if not transcript:
+            update_state(
+                last_error="No speech was captured.",
+                push_to_talk_processing=False,
+            )
+            log_event("PUSH-TO-TALK CAPTURE EMPTY")
+            return
+
+        with state_lock:
+            server_state["voice_event_id"] += 1
+            event_id = server_state["voice_event_id"]
+
+        update_state(
+            last_transcript=transcript,
+            last_response="",
+            voice_response_id=0,
+            last_error="",
+        )
+        log_event("VOICE INPUT RECOGNIZED")
+
+        response = process_with_lewis(transcript)
+        update_state(
+            last_response=response,
+            voice_response_id=event_id,
+        )
+        log_event("VOICE RESPONSE GENERATED")
+
+        state = get_state_snapshot()
+        if state["voice_enabled"] and VOICE_OUTPUT_AVAILABLE:
+            _speak_session_text(response, threading.Event())
+    except Exception as error:
+        print("LEWIS PUSH-TO-TALK ERROR:", type(error).__name__)
+        log_event("PUSH-TO-TALK OPERATION FAILED")
+        update_state(
+            last_error=(
+                "Push-to-talk failed: "
+                f"{type(error).__name__}. Check the server terminal."
+            )
+        )
+    finally:
+        update_state(
+            push_to_talk_active=False,
+            push_to_talk_processing=False,
+            listening=False,
+            speaking=False,
+            voice_output_pending=False,
+        )
+        voice_lock.release()
+
+
+def start_push_to_talk():
+    if not VOICE_INPUT_AVAILABLE or listen_once is None:
+        return False, "Voice input modules are unavailable."
+
+    if not LEWIS_AVAILABLE or lewis is None:
+        return False, "LEWIS Core is unavailable."
+
+    if not voice_lock.acquire(blocking=False):
+        return False, "A voice operation is already running."
+
+    try:
+        push_to_talk_stop_event.clear()
+        update_state(
+            push_to_talk_active=True,
+            push_to_talk_processing=False,
+            voice_session_active=False,
+            voice_session_stopping=False,
+            listening=False,
+            speaking=False,
+            voice_output_pending=False,
+            last_error="",
+            last_transcript="",
+            last_response="",
+            voice_response_id=0,
+        )
+        worker = threading.Thread(
+            target=push_to_talk_worker,
+            args=(push_to_talk_stop_event,),
+            name="LEWIS-Push-To-Talk-Worker",
+            daemon=True,
+        )
+        worker.start()
+        return True, "Push-to-talk capture started."
+    except Exception:
+        voice_lock.release()
+        update_state(
+            push_to_talk_active=False,
+            listening=False,
+            speaking=False,
+            last_error="Could not start push-to-talk capture.",
+        )
+        return False, "Could not start push-to-talk capture."
+
+
+def stop_push_to_talk():
+    with state_lock:
+        if not server_state["push_to_talk_active"]:
+            return False
+        push_to_talk_stop_event.set()
+
+    update_state(
+        push_to_talk_active=False,
+        push_to_talk_processing=True,
+    )
+    log_event("PUSH-TO-TALK RELEASED")
     return True
 
 
@@ -488,7 +702,9 @@ class LewisHandler(BaseHTTPRequestHandler):
     # -----------------------------------------------------
 
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        request = urlsplit(self.path)
+        path = request.path
+        query = parse_qs(request.query)
 
         if path == "/api/status":
             send_json(self, get_status())
@@ -508,12 +724,185 @@ class LewisHandler(BaseHTTPRequestHandler):
                             "id": item["id"],
                             "title": item["title"],
                             "updated_at": item["updated_at"],
+                            "project": item.get("project"),
+                            "folder": item.get("folder"),
+                            "pinned": item.get("pinned", False),
                         }
                         for item in conversations
                     ],
                     "active_id": get_active_conversation_id(),
                 },
             )
+            return
+
+        if path == "/api/conversations/search":
+            search_term = query.get("q", [""])[0].strip()
+            if not search_term:
+                send_json(self, {"results": []})
+                return
+            if len(search_term) > 200:
+                send_json(self, {"error": "Search text is too long."}, 400)
+                return
+            try:
+                send_json(
+                    self,
+                    {"results": search_messages(search_term, limit=50)},
+                )
+            except Exception as error:
+                print("LEWIS CONVERSATION SEARCH ERROR:", type(error).__name__)
+                send_json(
+                    self,
+                    {"error": "Could not search conversation history."},
+                    500,
+                )
+            return
+
+        if path == "/api/memory":
+            if not MEMORY_AVAILABLE:
+                send_json(self, {"error": "Memory module is unavailable."}, 503)
+                return
+            search_term = query.get("q", [""])[0].strip().casefold()
+            category = query.get("category", [""])[0].strip().casefold()
+            if len(search_term) > 200:
+                send_json(self, {"error": "Search text is too long."}, 400)
+                return
+            try:
+                records = get_all_memories()
+                categories = sorted({
+                    str(item.get("category", "")).strip()
+                    for item in records
+                    if str(item.get("category", "")).strip()
+                })
+                filtered = [
+                    item for item in records
+                    if (not category or
+                        str(item.get("category", "")).casefold() == category)
+                    and (
+                        not search_term or search_term in " ".join(
+                            str(item.get(field, ""))
+                            for field in (
+                                "subject", "key", "predicate", "value",
+                                "category", "status",
+                            )
+                        ).casefold()
+                    )
+                ]
+                send_json(
+                    self,
+                    {
+                        "memories": filtered,
+                        "categories": categories,
+                        "total": len(records),
+                    },
+                )
+            except Exception as error:
+                print("LEWIS MEMORY WORKSPACE ERROR:", type(error).__name__)
+                send_json(
+                    self,
+                    {"error": "Could not read LEWIS memory."},
+                    500,
+                )
+            return
+
+        if path == "/api/memory/activity":
+            send_json(
+                self,
+                {
+                    "events": [
+                        event for event in get_events()
+                        if "MEMORY" in str(event.get("message", "")).upper()
+                    ],
+                    "scope": "current server session",
+                },
+            )
+            return
+
+        if path == "/api/projects":
+            if not PROJECT_MEMORY_AVAILABLE:
+                send_json(
+                    self,
+                    {"error": "Project memory is unavailable."},
+                    503,
+                )
+                return
+            search_term = query.get("q", [""])[0].strip().casefold()
+            project_name = query.get("project", [""])[0].strip().casefold()
+            if len(search_term) > 200:
+                send_json(self, {"error": "Search text is too long."}, 400)
+                return
+            try:
+                all_projects = list_project_memory()
+                conversations_by_project = {}
+                for conversation in list_conversations():
+                    name = conversation.get("project")
+                    if not isinstance(name, str) or not name.strip():
+                        continue
+                    conversations_by_project.setdefault(
+                        name.casefold(),
+                        {"name": name, "conversations": []},
+                    )["conversations"].append({
+                        "id": conversation["id"],
+                        "title": conversation["title"],
+                        "updated_at": conversation["updated_at"],
+                    })
+
+                projects_by_name = {
+                    project["name"].casefold(): project
+                    for project in all_projects
+                }
+                for name_key, linked in conversations_by_project.items():
+                    project = projects_by_name.get(name_key)
+                    if project is None:
+                        project = {
+                            "name": linked["name"],
+                            "facts": [],
+                            "updated_at": None,
+                        }
+                        all_projects.append(project)
+                        projects_by_name[name_key] = project
+                    project["conversations"] = linked["conversations"]
+
+                project_names = [
+                    project["name"] for project in all_projects
+                ]
+                projects = all_projects
+                if project_name:
+                    projects = [
+                        project for project in projects
+                        if project["name"].casefold() == project_name
+                    ]
+                for project in projects:
+                    if search_term:
+                        if search_term.casefold() not in project["name"].casefold():
+                            project["facts"] = [
+                                fact for fact in project["facts"]
+                                if search_term in " ".join(
+                                    str(fact.get(field, ""))
+                                    for field in (
+                                        "subject", "predicate", "value",
+                                        "category", "status",
+                                    )
+                                ).casefold()
+                            ]
+                            project["conversations"] = [
+                                conversation
+                                for conversation in project.get("conversations", [])
+                                if search_term in conversation["title"].casefold()
+                            ]
+                send_json(
+                    self,
+                    {
+                        "projects": projects,
+                        "project_names": project_names,
+                    },
+                )
+            except Exception as error:
+                print("LEWIS PROJECT MEMORY WORKSPACE ERROR:", type(error).__name__)
+                send_json(
+                    self,
+                    {"error": "Could not read project memory."},
+                    500,
+                )
             return
 
         if path.startswith("/api/conversations/"):
@@ -561,6 +950,14 @@ class LewisHandler(BaseHTTPRequestHandler):
             self.handle_ai_model_selection()
             return
 
+        if path == "/api/ai/test":
+            self.handle_ai_connection_test()
+            return
+
+        if path == "/api/memory/update":
+            self.handle_memory_update()
+            return
+
         if path == "/api/conversations":
             self.handle_conversation_create()
             return
@@ -571,6 +968,10 @@ class LewisHandler(BaseHTTPRequestHandler):
 
         if path == "/api/conversations/rename":
             self.handle_conversation_rename()
+            return
+
+        if path == "/api/conversations/metadata":
+            self.handle_conversation_metadata()
             return
 
         if path == "/api/conversations/delete":
@@ -587,6 +988,14 @@ class LewisHandler(BaseHTTPRequestHandler):
 
         if path == "/api/voice/session/stop":
             self.handle_voice_session_stop()
+            return
+
+        if path == "/api/voice/ptt/start":
+            self.handle_push_to_talk_start()
+            return
+
+        if path == "/api/voice/ptt/stop":
+            self.handle_push_to_talk_stop()
             return
 
         if path == "/api/voice/speak":
@@ -606,6 +1015,45 @@ class LewisHandler(BaseHTTPRequestHandler):
     # -----------------------------------------------------
     # TEXT CHAT
     # -----------------------------------------------------
+
+    def handle_memory_update(self):
+        data = read_json_body(self)
+        if data is None or not isinstance(data.get("updates"), dict):
+            send_json(self, {"error": "Provide a memory ID and update fields."}, 400)
+            return
+        if not MEMORY_AVAILABLE:
+            send_json(self, {"error": "Memory module is unavailable."}, 503)
+            return
+
+        memory_id = data.get("id")
+        if not isinstance(memory_id, str) or not memory_id.strip():
+            send_json(self, {"error": "Provide a valid memory ID."}, 400)
+            return
+        updates = data["updates"]
+        allowed = {"subject", "key", "value", "category", "status", "importance"}
+        if not updates or set(updates) - allowed:
+            send_json(self, {"error": "The memory fields are invalid."}, 400)
+            return
+
+        try:
+            record = update_memory(memory_id, updates)
+        except MemoryValidationError as error:
+            send_json(self, {"error": str(error)}, 400)
+            return
+        except MemoryNotFoundError:
+            send_json(self, {"error": "Memory not found."}, 404)
+            return
+        except MemoryStorageError as error:
+            print("LEWIS MEMORY UPDATE ERROR:", type(error).__name__)
+            send_json(self, {"error": "Could not save this memory."}, 500)
+            return
+        except Exception as error:
+            print("LEWIS MEMORY UPDATE ERROR:", type(error).__name__)
+            send_json(self, {"error": "Could not save this memory."}, 500)
+            return
+
+        log_event("MEMORY UPDATED")
+        send_json(self, {"memory": record})
 
     def handle_conversation_create(self):
         data = read_json_body(self)
@@ -653,9 +1101,7 @@ class LewisHandler(BaseHTTPRequestHandler):
         try:
             set_active_conversation(conversation["id"])
             lewis.active_conversation_id = conversation["id"]
-            lewis.active_project = (
-                conversation.get("project") or lewis.active_project
-            )
+            lewis.active_project = conversation.get("project")
             send_json(self, {"conversation": conversation})
         except Exception as error:
             print("LEWIS CONVERSATION SELECT ERROR:", type(error).__name__)
@@ -707,6 +1153,66 @@ class LewisHandler(BaseHTTPRequestHandler):
                 500,
             )
 
+    def handle_conversation_metadata(self):
+        data = read_json_body(self)
+        if data is None or not isinstance(data.get("updates"), dict):
+            send_json(self, {"error": "Provide a conversation ID and settings."}, 400)
+            return
+
+        conversation_id = data.get("id")
+        updates = data["updates"]
+        allowed = {"pinned", "folder", "project"}
+        if (
+            not isinstance(conversation_id, str)
+            or not conversation_id.strip()
+            or not updates
+            or set(updates) - allowed
+        ):
+            send_json(self, {"error": "Conversation settings are invalid."}, 400)
+            return
+
+        if "pinned" in updates and not isinstance(updates["pinned"], bool):
+            send_json(self, {"error": "Pinned must be true or false."}, 400)
+            return
+
+        for field, limit in (("folder", 80), ("project", 120)):
+            value = updates.get(field)
+            if field not in updates or (field == "project" and value is None):
+                continue
+            if not isinstance(value, str) or len(value.strip()) > limit:
+                send_json(
+                    self,
+                    {"error": f"{field.capitalize()} must be at most {limit} characters."},
+                    400,
+                )
+                return
+
+        try:
+            conversation = update_conversation_metadata(
+                conversation_id,
+                updates,
+            )
+            if (
+                LEWIS_AVAILABLE
+                and lewis is not None
+                and get_active_conversation_id() == conversation_id
+                and "project" in updates
+            ):
+                lewis.active_project = conversation.get("project")
+            send_json(self, {"conversation": conversation})
+        except ValueError as error:
+            if str(error).startswith("Could not find conversation"):
+                send_json(self, {"error": "Conversation not found."}, 404)
+                return
+            send_json(self, {"error": str(error)}, 400)
+        except Exception as error:
+            print("LEWIS CONVERSATION ORGANIZATION ERROR:", type(error).__name__)
+            send_json(
+                self,
+                {"error": "Could not update conversation settings."},
+                500,
+            )
+
     def handle_conversation_delete(self):
         data = read_json_body(self)
 
@@ -732,8 +1238,13 @@ class LewisHandler(BaseHTTPRequestHandler):
 
             if active_id:
                 active_conversation = get_conversation(active_id)
-                if active_conversation and active_conversation.get("project"):
-                    lewis.active_project = active_conversation["project"]
+                lewis.active_project = (
+                    active_conversation.get("project")
+                    if active_conversation
+                    else None
+                )
+            else:
+                lewis.active_project = None
 
             send_json(self, result)
         except ValueError:
@@ -771,6 +1282,65 @@ class LewisHandler(BaseHTTPRequestHandler):
             f"{selection['provider']} / {selection['model']}"
         )
         send_json(self, {"selection": selection})
+
+    def handle_ai_connection_test(self):
+        if not AI_AVAILABLE:
+            send_json(self, {"error": "AI module is unavailable."}, 503)
+            return
+        if not core_lock.acquire(blocking=False):
+            send_json(
+                self,
+                {"error": "Wait for the current LEWIS request before testing the provider."},
+                409,
+            )
+            return
+
+        try:
+            state = get_state_snapshot()
+            if (
+                state["voice_session_active"]
+                or state["push_to_talk_active"]
+                or state["push_to_talk_processing"]
+            ):
+                send_json(
+                    self,
+                    {"error": "Stop voice interaction before testing the provider."},
+                    409,
+                )
+                return
+
+            update_state(processing=True)
+            log_event("AI PROVIDER TEST STARTED")
+            try:
+                result = ai.model.test_ai_connection()
+            except Exception as error:
+                print("LEWIS AI PROVIDER TEST ERROR:", type(error).__name__)
+                log_event("AI PROVIDER TEST FAILED")
+                send_json(
+                    self,
+                    {
+                        "error": (
+                            "The provider test failed. Check the server "
+                            "terminal for the failure type."
+                        )
+                    },
+                    502,
+                )
+                return
+            finally:
+                update_state(processing=False)
+
+            log_event("AI PROVIDER TEST SUCCEEDED")
+            send_json(
+                self,
+                {
+                    "ok": True,
+                    "provider": result["provider"],
+                    "model": result["model"],
+                },
+            )
+        finally:
+            core_lock.release()
 
     def handle_chat(self):
         data = read_json_body(self)
@@ -845,6 +1415,44 @@ class LewisHandler(BaseHTTPRequestHandler):
             202,
         )
 
+    def handle_push_to_talk_start(self):
+        success, message = start_push_to_talk()
+
+        if not success:
+            send_json(self, {"error": message}, 409)
+            return
+
+        send_json(
+            self,
+            {
+                "message": message,
+                "push_to_talk_active": get_state_snapshot()[
+                    "push_to_talk_active"
+                ],
+            },
+            202,
+        )
+
+    def handle_push_to_talk_stop(self):
+        if not stop_push_to_talk():
+            send_json(
+                self,
+                {
+                    "message": "Push-to-talk capture has already ended.",
+                    "push_to_talk_active": False,
+                },
+            )
+            return
+
+        send_json(
+            self,
+            {
+                "message": "Push-to-talk released; finalizing captured speech.",
+                "push_to_talk_active": False,
+            },
+            202,
+        )
+
     def handle_voice_session_stop(self):
         if not VOICE_INPUT_AVAILABLE:
             send_json(
@@ -853,6 +1461,11 @@ class LewisHandler(BaseHTTPRequestHandler):
                 503,
             )
             return
+
+        state = get_state_snapshot()
+        speech_was_active = (
+            state["speaking"] or state["voice_output_pending"]
+        )
 
         if not stop_voice_session():
             send_json(
@@ -871,6 +1484,7 @@ class LewisHandler(BaseHTTPRequestHandler):
                 "message": "Voice session stopping.",
                 "activity": "STOPPING",
                 "voice_session_active": True,
+                "speech_stop_requested": speech_was_active,
             },
             202,
         )
@@ -943,7 +1557,11 @@ class LewisHandler(BaseHTTPRequestHandler):
             return
 
         # A live microphone or output operation owns the voice device.
-        if state["speaking"] or state["listening"]:
+        if (
+            state["speaking"] or
+            state["voice_output_pending"] or
+            state["listening"]
+        ):
             send_json(
                 self,
                 {"error": "A voice operation is already running."},
@@ -951,19 +1569,36 @@ class LewisHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if not voice_lock.acquire(blocking=False):
+            send_json(
+                self,
+                {"error": "A voice operation is already running."},
+                409,
+            )
+            return
+
+        speech_cancel_event = threading.Event()
+        _set_active_voice_output_cancel_event(speech_cancel_event)
+
         def speech_worker():
             def playback_started():
-                update_state(processing=False, speaking=True)
+                update_state(
+                    processing=False,
+                    speaking=True,
+                    voice_output_pending=False,
+                )
                 log_event("VOICE OUTPUT STARTED")
 
             try:
                 update_state(
                     processing=True,
                     speaking=False,
+                    voice_output_pending=True,
                     last_error="",
                 )
                 completed = speak(
                     text,
+                    cancel_event=speech_cancel_event,
                     on_playback_start=playback_started,
                 )
                 if not completed and not was_stop_requested():
@@ -982,19 +1617,19 @@ class LewisHandler(BaseHTTPRequestHandler):
                 )
 
             finally:
+                _clear_active_voice_output_cancel_event(speech_cancel_event)
                 update_state(
                     processing=False,
                     speaking=False,
+                    voice_output_pending=False,
                 )
 
-        # Reserve the voice lock so this cannot overlap microphone capture.
-        if not voice_lock.acquire(blocking=False):
-            send_json(
-                self,
-                {"error": "A voice operation is already running."},
-                409,
-            )
-            return
+        update_state(
+            processing=True,
+            speaking=False,
+            voice_output_pending=True,
+            last_error="",
+        )
 
         def reserved_speech_worker():
             try:
@@ -1010,6 +1645,12 @@ class LewisHandler(BaseHTTPRequestHandler):
             ).start()
         except Exception:
             voice_lock.release()
+            _clear_active_voice_output_cancel_event(speech_cancel_event)
+            update_state(
+                processing=False,
+                speaking=False,
+                voice_output_pending=False,
+            )
             send_json(
                 self,
                 {"error": "Could not start speech output."},
@@ -1033,8 +1674,22 @@ class LewisHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            stop_speaking()
-            send_json(self, {"message": "Stop requested."})
+            state = get_state_snapshot()
+            speech_was_active = (
+                state["speaking"] or state["voice_output_pending"]
+            )
+            _request_voice_output_stop()
+            send_json(
+                self,
+                {
+                    "message": (
+                        "Speech stop requested."
+                        if speech_was_active
+                        else "No speech was active."
+                    ),
+                    "speech_stop_requested": speech_was_active,
+                },
+            )
         except Exception as error:
             print("LEWIS STOP SPEECH ERROR:", type(error).__name__)
             send_json(self, {"error": "Could not stop speech output."}, 500)

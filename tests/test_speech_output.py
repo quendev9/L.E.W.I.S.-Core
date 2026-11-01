@@ -1,3 +1,4 @@
+import threading
 import unittest
 from unittest.mock import Mock, patch
 
@@ -50,6 +51,56 @@ class SpeechOutputTests(unittest.TestCase):
             ))
 
         playback_started.assert_called_once_with()
+
+    def test_windows_fish_playback_closes_mci_device_after_completion(self):
+        commands = []
+
+        def mci_command(command):
+            commands.append(command)
+            if command.endswith(" mode"):
+                return "stopped"
+            return ""
+
+        playback_started = Mock()
+        with (
+            patch.object(speech_output.os, "name", "nt"),
+            patch.object(speech_output, "_mci_command", side_effect=mci_command),
+        ):
+            completed = speech_output._play_fish_audio(
+                "C:\\Temp\\response.mp3",
+                on_playback_start=playback_started,
+            )
+
+        self.assertTrue(completed)
+        self.assertTrue(any(command.startswith("open ") for command in commands))
+        self.assertTrue(any(command.startswith("play ") for command in commands))
+        self.assertTrue(any(command.startswith("close ") for command in commands))
+        playback_started.assert_called_once_with()
+
+    def test_windows_fish_playback_stops_when_cancelled(self):
+        cancel_event = threading.Event()
+        commands = []
+
+        def mci_command(command):
+            commands.append(command)
+            if command.endswith(" mode"):
+                cancel_event.set()
+                return "playing"
+            return ""
+
+        with (
+            patch.object(speech_output.os, "name", "nt"),
+            patch.object(speech_output, "_mci_command", side_effect=mci_command),
+            patch.object(speech_output.time, "sleep"),
+        ):
+            completed = speech_output._play_fish_audio(
+                "C:\\Temp\\response.mp3",
+                cancel_event=cancel_event,
+            )
+
+        self.assertFalse(completed)
+        self.assertTrue(any(command.startswith("stop ") for command in commands))
+        self.assertTrue(any(command.startswith("close ") for command in commands))
 
 
 if __name__ == "__main__":

@@ -350,6 +350,19 @@ def get_project_facts(project_name=None):
     return list(project_bucket["facts"]) if project_bucket else []
 
 
+def list_project_memory():
+    """Return saved project names and their stored facts."""
+    data = _read_project_memory()
+    return [
+        {
+            "name": name,
+            "facts": list(bucket["facts"]),
+            "updated_at": bucket.get("updated_at"),
+        }
+        for name, bucket in data["projects"].items()
+    ]
+
+
 def search_project_facts(query, project_name=None, limit=10):
     if not isinstance(query, str) or not query.strip() or limit <= 0:
         return []
