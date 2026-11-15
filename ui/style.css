@@ -2101,7 +2101,6 @@ body.focus-mode-active {
 
 .hud.focus-mode .focus-history-button {
     display: inline-flex;
-    min-height: 26px;
     align-items: center;
 }
 
@@ -3799,8 +3798,20 @@ body.focus-mode-active {
 .hud.focus-mode .core-area {
     position: relative;
     grid-template-rows: minmax(0, 1fr) clamp(150px, 19dvh, 190px);
-    gap: clamp(8px, 1.5vh, 18px);
+    gap: clamp(24px, 3.5vh, 36px);
     padding: 8px clamp(12px, 3vw, 40px) 16px;
+}
+
+.hud.focus-mode .orb-status-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.hud.focus-mode .orb-caption {
+    transform: none;
 }
 
 .hud.focus-mode .orb {
@@ -4056,6 +4067,7 @@ body.focus-mode-active {
 
     .hud.focus-mode .core-area {
         grid-template-rows: minmax(0, 1fr) clamp(145px, 19dvh, 175px);
+        gap: clamp(18px, 2.5vh, 26px);
         padding: 6px 8px 10px;
     }
 
