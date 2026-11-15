@@ -15,7 +15,7 @@
                 <span class="brand-mark" aria-hidden="true">
                     <img src="lewis-logo.svg" alt="">
                 </span>
-                <span class="brand-name">LEWIS</span>
+                <span class="brand-name">L.E.W.I.S.</span>
             </a>
 
             <div class="brand-subtitle">
@@ -652,6 +652,7 @@
                 id="conversationList"
                 class="conversation-list"
                 aria-label="Saved conversations and search results"
+                tabindex="-1"
             >
                 <p class="conversation-list-empty">
                     Loading conversations...
@@ -663,6 +664,34 @@
                 long-term memory.
             </p>
         </aside>
+
+        <dialog
+            id="deleteConversationDialog"
+            class="hud-confirmation-dialog"
+            aria-labelledby="deleteConversationTitle"
+            aria-describedby="deleteConversationDescription"
+        >
+            <div class="confirmation-eyebrow">CONVERSATION HISTORY</div>
+            <h2 id="deleteConversationTitle">Delete conversation?</h2>
+            <p id="deleteConversationDescription">
+                This permanently deletes
+                <strong id="deleteConversationName"></strong> and its chat history.
+                LEWIS's long-term memory will not be deleted.
+            </p>
+            <p class="confirmation-warning">This action cannot be undone.</p>
+            <div
+                id="deleteConversationStatus"
+                class="confirmation-status"
+                role="status"
+                aria-live="polite"
+            ></div>
+            <div class="confirmation-actions">
+                <button id="cancelDeleteConversationButton" type="button">CANCEL</button>
+                <button id="confirmDeleteConversationButton" type="button" class="destructive">
+                    DELETE
+                </button>
+            </div>
+        </dialog>
 
         <div id="workspaceBackdrop" class="workspace-backdrop" hidden></div>
         <section

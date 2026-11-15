@@ -5,6 +5,16 @@ const hud = document.querySelector(".hud");
 const expandChatButton = document.getElementById("expandChatButton");
 const openFocusHistoryButton =
     document.getElementById("openFocusHistoryButton");
+const deleteConversationDialog =
+    document.getElementById("deleteConversationDialog");
+const deleteConversationName =
+    document.getElementById("deleteConversationName");
+const deleteConversationStatus =
+    document.getElementById("deleteConversationStatus");
+const cancelDeleteConversationButton =
+    document.getElementById("cancelDeleteConversationButton");
+const confirmDeleteConversationButton =
+    document.getElementById("confirmDeleteConversationButton");
 const coreOrb = document.getElementById("coreOrb");
 const voiceCard = document.querySelector(".voice-card");
 
@@ -84,6 +94,8 @@ let conversationDrawerOpen = false;
 let conversationRequestId = 0;
 let conversationListRequestId = 0;
 let conversationDrawerReturnFocus = null;
+let pendingConversationDeletion = null;
+let deletionDialogReturnFocus = null;
 let conversationSearchRequestId = 0;
 let conversationSearchTimer = null;
 let workspaceRequestId = 0;
@@ -268,6 +280,12 @@ function addMessage(sender, text) {
 
     const message = document.createElement("div");
     message.className = "message";
+    const normalizedSender = String(sender).toUpperCase();
+    message.classList.add(
+        normalizedSender.startsWith("YOU") ? "user-message" :
+            normalizedSender === "LEWIS" ? "lewis-message" :
+                "system-message"
+    );
 
     const senderElement = document.createElement("div");
     senderElement.className = "message-label";
@@ -1009,23 +1027,54 @@ async function deleteConversationFromDrawer(conversation) {
         return;
     }
 
-    const title = String(conversation.title || "New conversation");
-    const confirmed = window.confirm(
-        `Delete "${title}" and its conversation history?\n\n` +
-        "This cannot be undone. LEWIS's long-term memory will not be deleted."
-    );
+    if (!deleteConversationDialog || !deleteConversationName) {
+        setConversationDrawerStatus(
+            "The conversation confirmation dialog is unavailable.",
+            true
+        );
+        return;
+    }
 
-    if (!confirmed) return;
+    pendingConversationDeletion = conversation;
+    deletionDialogReturnFocus = document.activeElement;
+    deleteConversationName.textContent =
+        String(conversation.title || "New conversation");
+    if (deleteConversationStatus) {
+        deleteConversationStatus.textContent = "";
+        deleteConversationStatus.dataset.state = "normal";
+    }
+    deleteConversationDialog.showModal();
+    cancelDeleteConversationButton?.focus();
+}
 
+async function confirmConversationDeletion() {
+    const conversation = pendingConversationDeletion;
+    if (!conversation || conversationActionInProgress || requestInProgress) return;
+
+    let deletionConfirmedByBackend = false;
     conversationActionInProgress = true;
     syncConversationControls();
-    setConversationDrawerStatus("Deleting conversation...");
+    if (deleteConversationStatus) {
+        deleteConversationStatus.textContent = "Deleting conversation...";
+        deleteConversationStatus.dataset.state = "normal";
+    }
+    if (confirmDeleteConversationButton) {
+        confirmDeleteConversationButton.disabled = true;
+    }
+    if (cancelDeleteConversationButton) {
+        cancelDeleteConversationButton.disabled = true;
+    }
 
     try {
         const data = await apiRequest("/api/conversations/delete", {
             method: "POST",
             body: JSON.stringify({ id: conversation.id })
         });
+
+        if (data.deleted_id !== conversation.id) {
+            throw new Error("The server did not confirm deletion of this conversation.");
+        }
+        deletionConfirmedByBackend = true;
 
         const nextActiveId =
             data.active_conversation_id ||
@@ -1034,6 +1083,8 @@ async function deleteConversationFromDrawer(conversation) {
 
         // Prevent any older request from rendering a conversation that was deleted.
         conversationRequestId += 1;
+        pendingConversationDeletion = null;
+        deleteConversationDialog?.close();
 
         if (conversation.id === activeConversationId) {
             activeConversationId = null;
@@ -1047,18 +1098,61 @@ async function deleteConversationFromDrawer(conversation) {
             await refreshConversationList(activeConversationId);
         }
 
-        setConversationDrawerStatus("Conversation deleted. Long-term memory was preserved.");
+        setConversationDrawerStatus(
+            "Conversation deleted. Long-term memory was preserved."
+        );
+        if (conversationDrawerOpen) conversationList?.focus();
     } catch (error) {
         console.error("LEWIS CONVERSATION DELETE ERROR:", error);
-        setConversationDrawerStatus(
-            `Could not delete conversation: ${error.message}`,
-            true
-        );
+        if (deletionConfirmedByBackend) {
+            setConversationDrawerStatus(
+                `Conversation was deleted, but the list could not be refreshed: ${error.message}`,
+                true
+            );
+        } else if (deleteConversationStatus) {
+            deleteConversationStatus.textContent =
+                `Could not delete conversation: ${error.message}`;
+            deleteConversationStatus.dataset.state = "error";
+        }
     } finally {
         conversationActionInProgress = false;
+        if (confirmDeleteConversationButton) {
+            confirmDeleteConversationButton.disabled = false;
+        }
+        if (cancelDeleteConversationButton) {
+            cancelDeleteConversationButton.disabled = false;
+        }
         syncConversationControls();
     }
 }
+
+cancelDeleteConversationButton?.addEventListener("click", () => {
+    pendingConversationDeletion = null;
+    deleteConversationDialog?.close();
+});
+
+confirmDeleteConversationButton?.addEventListener(
+    "click",
+    confirmConversationDeletion
+);
+
+deleteConversationDialog?.addEventListener("close", () => {
+    if (!pendingConversationDeletion) {
+        const returnFocus = deletionDialogReturnFocus;
+        deletionDialogReturnFocus = null;
+        if (returnFocus instanceof HTMLElement && returnFocus.isConnected) {
+            returnFocus.focus();
+        }
+    }
+});
+
+deleteConversationDialog?.addEventListener("cancel", (event) => {
+    if (conversationActionInProgress) {
+        event.preventDefault();
+        return;
+    }
+    pendingConversationDeletion = null;
+});
 
 function renderConversationSearchResults(results, searchTerm) {
     if (!conversationList) return;
