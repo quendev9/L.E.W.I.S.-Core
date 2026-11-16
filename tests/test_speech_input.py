@@ -1,7 +1,7 @@
 import json
-import unittest
 import threading
-from unittest.mock import patch
+import unittest
+from unittest.mock import Mock, patch
 
 from voice import speech_input
 
@@ -42,6 +42,16 @@ class FakeInputStream:
         FakeInputStream.active = False
 
 
+class FakeInputStreamWithAudio(FakeInputStream):
+    def __init__(self, **options):
+        self.callback = options["callback"]
+
+    def __enter__(self):
+        super().__enter__()
+        self.callback(b"\x00\x00", 1, None, None)
+        return self
+
+
 class SpeechInputTests(unittest.TestCase):
     def test_capture_callback_and_timings_do_not_log_transcript(self):
         capture_state = []
@@ -57,11 +67,15 @@ class SpeechInputTests(unittest.TestCase):
                 "KaldiRecognizer",
                 return_value=FakeRecognizer(),
             ),
-            patch.object(speech_input.sd, "RawInputStream", FakeInputStream),
+            patch.object(
+                speech_input.sd,
+                "RawInputStream",
+                FakeInputStreamWithAudio,
+            ),
             patch.object(speech_input, "log_event", side_effect=events.append),
         ):
             transcript = speech_input.listen_once(
-                timeout=0,
+                timeout=0.01,
                 on_capture_start=mark_capturing,
             )
 
@@ -71,6 +85,48 @@ class SpeechInputTests(unittest.TestCase):
         self.assertIn("VOICE INPUT CAPTURE:", events[0])
         self.assertIn("VOICE TRANSCRIPTION:", events[1])
         self.assertNotIn("recognized words", " ".join(events))
+
+    def test_empty_capture_does_not_finalize_a_transcript(self):
+        recognizer = Mock()
+        recognizer.FinalResult.side_effect = AssertionError(
+            "Empty microphone input must not be transcribed."
+        )
+
+        with (
+            patch.object(speech_input, "_get_model", return_value=object()),
+            patch.object(
+                speech_input,
+                "KaldiRecognizer",
+                return_value=recognizer,
+            ),
+            patch.object(speech_input.sd, "RawInputStream", FakeInputStream),
+            patch.object(speech_input, "log_event"),
+        ):
+            transcript = speech_input.listen_once(timeout=0)
+
+        self.assertEqual(transcript, "")
+        recognizer.FinalResult.assert_not_called()
+
+    def test_microphone_startup_error_is_preserved(self):
+        with (
+            patch.object(speech_input, "_get_model", return_value=object()),
+            patch.object(
+                speech_input,
+                "KaldiRecognizer",
+                return_value=FakeRecognizer(),
+            ),
+            patch.object(
+                speech_input.sd,
+                "RawInputStream",
+                side_effect=RuntimeError("Microphone permission denied."),
+            ),
+            patch.object(speech_input, "log_event"),
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Microphone permission denied",
+            ):
+                speech_input.listen_once(timeout=1)
 
     def test_push_to_talk_collects_segments_until_release(self):
         stop_event = threading.Event()

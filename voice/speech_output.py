@@ -1,44 +1,26 @@
 
-import os
+import queue
 import re
-import tempfile
 import threading
 import time
-import uuid
-from pathlib import Path
 
 try:
     import pyttsx3
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
+except ModuleNotFoundError as error:  # pragma: no cover - optional dependency
     pyttsx3 = None
-
-try:
-    from dotenv import load_dotenv
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    def load_dotenv():
-        return False
-
-try:
-    from fishaudio import FishAudio
-    from fishaudio.utils import save
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    FishAudio = None
-
-    def save(*args, **kwargs):
-        raise RuntimeError("fishaudio is unavailable")
+    _PYTTSX3_IMPORT_ERROR = str(error)
+else:
+    _PYTTSX3_IMPORT_ERROR = None
 
 from core.event_logger import log_event
 
 
-load_dotenv()
-
-VOICE_ID = "e13fa398a7f445a685316a3de6089ce7"
-FISH_MODEL = "s2.1-pro-free"
-
 _engine = None
-_fish_client = None
 _speech_lock = threading.Lock()
 _stop_requested = threading.Event()
+_speech_requests = queue.Queue()
+_speech_worker_lock = threading.Lock()
+_speech_worker_thread = None
 
 
 def _speech_cancelled(cancel_event=None):
@@ -47,68 +29,15 @@ def _speech_cancelled(cancel_event=None):
     )
 
 
-def _mci_command(command):
-    from ctypes import create_unicode_buffer, windll
-
-    output = create_unicode_buffer(256)
-    error_code = int(
-        windll.winmm.mciSendStringW(command, output, len(output), 0)
-    )
-
-    if error_code:
-        error = create_unicode_buffer(256)
-        windll.winmm.mciGetErrorStringW(error_code, error, len(error))
-        raise RuntimeError(
-            error.value or f"Windows audio command failed ({error_code})."
-        )
-
-    return output.value
-
-
-def _play_fish_audio(audio_path, cancel_event=None, on_playback_start=None):
-    if os.name != "nt":
-        from playsound import playsound
-
-        if on_playback_start:
-            on_playback_start()
-        playsound(str(audio_path))
-        return not _speech_cancelled(cancel_event)
-
-    alias = f"lewis_{uuid.uuid4().hex}"
-    opened = False
-
-    try:
-        _mci_command(f'open "{audio_path}" alias {alias}')
-        opened = True
-        _mci_command(f"set {alias} time format milliseconds")
-
-        if _speech_cancelled(cancel_event):
-            return False
-
-        _mci_command(f"play {alias}")
-        if on_playback_start:
-            on_playback_start()
-
-        while True:
-            if _speech_cancelled(cancel_event):
-                _mci_command(f"stop {alias}")
-                return False
-
-            if _mci_command(f"status {alias} mode").lower() == "stopped":
-                return True
-
-            time.sleep(0.05)
-    finally:
-        if opened:
-            _mci_command(f"close {alias}")
-
-
 def _get_engine():
-    """Initialize the local fallback voice when needed."""
+    """Initialize the installed local system speech voice."""
     global _engine
 
     if pyttsx3 is None:
-        raise RuntimeError("pyttsx3 is unavailable")
+        raise RuntimeError(
+            "pyttsx3 is unavailable in this Python environment: "
+            f"{_PYTTSX3_IMPORT_ERROR}"
+        )
 
     if _engine is None:
         _engine = pyttsx3.init()
@@ -116,24 +45,6 @@ def _get_engine():
         _engine.setProperty("volume", 1.0)
 
     return _engine
-
-
-def _get_fish_client():
-    """Create the Fish Audio client using the key stored in .env."""
-    global _fish_client
-
-    if FishAudio is None:
-        raise RuntimeError("Fish Audio SDK is unavailable")
-
-    if _fish_client is None:
-        api_key = os.getenv("FISH_API_KEY")
-
-        if not api_key:
-            raise RuntimeError("FISH_API_KEY is missing from .env")
-
-        _fish_client = FishAudio(api_key=api_key)
-
-    return _fish_client
 
 
 def _prepare_speech(text):
@@ -197,62 +108,120 @@ def _prepare_speech(text):
     return text.strip()
 
 
-def _speak_fish(text, cancel_event=None, on_playback_start=None):
-    """Generate and play speech using Fish Audio."""
-    client = _get_fish_client()
-
-    generation_started = time.perf_counter()
-    audio = client.tts.convert(
-        text=text,
-        reference_id=VOICE_ID,
-        model=FISH_MODEL,
-        format="mp3",
-    )
-
-    # Save to a temporary file rather than leaving audio files in the repo.
-    with tempfile.NamedTemporaryFile(
-        suffix=".mp3", delete=False
-    ) as audio_file:
-        audio_path = Path(audio_file.name)
-
-    try:
-        save(audio, str(audio_path))
-        log_event(
-            "VOICE TTS GENERATION: "
-            f"{(time.perf_counter() - generation_started) * 1000:.0f} ms"
-        )
-
-        if _speech_cancelled(cancel_event):
-            return
-
-        log_event(
-            "VOICE PLAYBACK STARTUP: "
-            f"{(time.perf_counter() - generation_started) * 1000:.0f} ms"
-        )
-        _play_fish_audio(audio_path, cancel_event, on_playback_start)
-    finally:
-        try:
-            audio_path.unlink(missing_ok=True)
-        except OSError:
-            pass
-
-
-def _speak_local(text, on_playback_start=None):
-    """Speak with the existing offline Windows/system voice."""
+def _speak_local(text, cancel_event=None, on_playback_start=None):
+    """Speak with the offline system voice and confirm utterance completion."""
     playback_started = time.perf_counter()
     engine = _get_engine()
-    engine.say(text)
-    if on_playback_start:
-        on_playback_start()
-    log_event(
-        "VOICE PLAYBACK STARTUP: local voice "
-        f"{(time.perf_counter() - playback_started) * 1000:.0f} ms"
-    )
-    engine.runAndWait()
+    finished_utterances = []
+    started_utterance = threading.Event()
+    engine_errors = []
+
+    def handle_started(name):
+        started_utterance.set()
+        if on_playback_start:
+            on_playback_start()
+        log_event(
+            "VOICE PLAYBACK STARTUP: local voice "
+            f"{(time.perf_counter() - playback_started) * 1000:.0f} ms"
+        )
+
+    def handle_finished(name, completed):
+        finished_utterances.append(completed)
+
+    def handle_error(name, exception):
+        engine_errors.append(exception)
+
+    started_token = engine.connect("started-utterance", handle_started)
+    finished_token = engine.connect("finished-utterance", handle_finished)
+    error_token = engine.connect("error", handle_error)
+    loop_started = False
+    stop_sent = False
+
+    try:
+        if _speech_cancelled(cancel_event):
+            return False
+
+        engine.say(text)
+        if _speech_cancelled(cancel_event):
+            engine.stop()
+            return False
+        engine.startLoop(False)
+        loop_started = True
+        deadline = time.monotonic() + max(30.0, len(text) * 0.25 + 15.0)
+
+        while not finished_utterances:
+            if _speech_cancelled(cancel_event) and not stop_sent:
+                engine.stop()
+                stop_sent = True
+            engine.iterate()
+
+            if engine_errors:
+                raise RuntimeError(
+                    f"The local speech engine failed: {engine_errors[0]}"
+                ) from engine_errors[0]
+            if finished_utterances:
+                break
+            if (
+                started_utterance.is_set()
+                and not engine.isBusy()
+                and not _speech_cancelled(cancel_event)
+            ):
+                raise RuntimeError(
+                    "The local speech engine returned without completing "
+                    "an utterance."
+                )
+            if time.monotonic() >= deadline:
+                engine.stop()
+                raise RuntimeError("Local speech playback timed out.")
+            if not finished_utterances:
+                time.sleep(0.01)
+
+        if _speech_cancelled(cancel_event):
+            return False
+        if not finished_utterances[-1]:
+            raise RuntimeError(
+                "The local speech engine reported incomplete playback."
+            )
+        return True
+    finally:
+        if loop_started:
+            engine.endLoop()
+        engine.disconnect(started_token)
+        engine.disconnect(finished_token)
+        engine.disconnect(error_token)
+
+
+def _speech_worker():
+    while True:
+        request = _speech_requests.get()
+        try:
+            request["completed"] = _speak_local(
+                request["text"],
+                request["cancel_event"],
+                request["on_playback_start"],
+            )
+        except Exception as error:
+            request["error"] = error
+        finally:
+            request["finished"].set()
+            _speech_requests.task_done()
+
+
+def _start_speech_worker():
+    global _speech_worker_thread
+
+    with _speech_worker_lock:
+        if _speech_worker_thread is None or not _speech_worker_thread.is_alive():
+            _speech_worker_thread = threading.Thread(
+                target=_speech_worker,
+                name="LEWIS-Local-TTS",
+                daemon=True,
+            )
+            _speech_worker_thread.start()
 
 
 def speak(text, cancel_event=None, on_playback_start=None):
-    """Speak with Fish Audio, falling back to the local voice on errors."""
+    """Speak locally without requiring network access or cloud credentials."""
     clean_text = _prepare_speech(text)
     if not clean_text:
         return False
@@ -265,34 +234,28 @@ def speak(text, cancel_event=None, on_playback_start=None):
         if cancel_event and cancel_event.is_set():
             return False
 
-        try:
-            _speak_fish(clean_text, cancel_event, on_playback_start)
-        except Exception as error:
-            print(f"[LEWIS voice] Fish Audio unavailable: {error}")
-            print("[LEWIS voice] Using local fallback voice.")
+        request = {
+            "text": clean_text,
+            "cancel_event": cancel_event,
+            "on_playback_start": on_playback_start,
+            "finished": threading.Event(),
+        }
+        _start_speech_worker()
+        _speech_requests.put(request)
+        request["finished"].wait()
 
-            try:
-                if not _stop_requested.is_set() and not (
-                    cancel_event and cancel_event.is_set()
-                ):
-                    _speak_local(clean_text, on_playback_start)
-            except Exception as fallback_error:
-                print(f"[LEWIS voice] Local speech failed: {fallback_error}")
-                log_event("VOICE PLAYBACK FAILED")
-                return False
+        error = request.get("error")
+        if error is not None:
+            print(f"[LEWIS voice] Local speech failed: {error}")
+            log_event(f"VOICE PLAYBACK FAILED: {error}")
+            return False
 
-        return not _speech_cancelled(cancel_event)
+        return request["completed"] and not _speech_cancelled(cancel_event)
 
 
 def stop_speaking():
-    """Request speech to stop and stop the local engine if initialized."""
+    """Request speech to stop; the owning SAPI thread performs the stop."""
     _stop_requested.set()
-
-    if _engine is not None:
-        try:
-            _engine.stop()
-        except Exception:
-            pass
 
 
 def was_stop_requested():

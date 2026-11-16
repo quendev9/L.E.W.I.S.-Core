@@ -611,13 +611,14 @@ def push_to_talk_worker(stop_event):
         if state["voice_enabled"] and VOICE_OUTPUT_AVAILABLE:
             _speak_session_text(response, threading.Event())
     except Exception as error:
-        print("LEWIS PUSH-TO-TALK ERROR:", type(error).__name__)
-        log_event("PUSH-TO-TALK OPERATION FAILED")
+        error_message = str(error).strip() or type(error).__name__
+        print(
+            "LEWIS PUSH-TO-TALK ERROR:",
+            f"{type(error).__name__}: {error_message}",
+        )
+        log_event(f"PUSH-TO-TALK OPERATION FAILED: {error_message}")
         update_state(
-            last_error=(
-                "Push-to-talk failed: "
-                f"{type(error).__name__}. Check the server terminal."
-            )
+            last_error=f"Push-to-talk failed: {error_message}"
         )
     finally:
         update_state(

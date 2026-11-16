@@ -111,6 +111,30 @@ class HUDPushToTalkTests(unittest.TestCase):
         self.assertFalse(state["push_to_talk_active"])
         self.assertFalse(state["push_to_talk_processing"])
 
+    def test_capture_error_is_exposed_and_releases_voice_lock(self):
+        server.voice_lock.acquire()
+        stop_event = threading.Event()
+
+        with (
+            patch.object(
+                server,
+                "listen_once",
+                side_effect=RuntimeError("No accessible input device."),
+            ),
+            patch.object(server, "log_event"),
+            patch("builtins.print"),
+        ):
+            server.push_to_talk_worker(stop_event)
+
+        state = server.get_state_snapshot()
+        self.assertEqual(
+            state["last_error"],
+            "Push-to-talk failed: No accessible input device.",
+        )
+        self.assertFalse(state["push_to_talk_active"])
+        self.assertFalse(state["push_to_talk_processing"])
+        self.assertFalse(server.voice_lock.locked())
+
 
 if __name__ == "__main__":
     unittest.main()

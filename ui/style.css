@@ -4269,3 +4269,265 @@ body.focus-mode-active {
         width: min(32vh, 220px);
     }
 }
+
+.orb {
+    isolation: isolate;
+    filter:
+        drop-shadow(0 22px 28px rgba(0, 0, 0, .34))
+        drop-shadow(0 0 34px rgba(224, 231, 234, .12));
+}
+
+.orb::before {
+    z-index: 1;
+    inset: 14%;
+    border: 1px solid rgba(241, 245, 247, .24);
+    background:
+        radial-gradient(ellipse at 34% 24%, rgba(255, 255, 255, .9), rgba(233, 237, 239, .26) 9%, transparent 33%),
+        radial-gradient(ellipse at 72% 77%, rgba(0, 0, 0, .94), transparent 58%),
+        radial-gradient(circle at 44% 42%, #555d64 0, #292e33 48%, #0a0c0e 82%);
+    box-shadow:
+        inset 9px 10px 20px rgba(255, 255, 255, .22),
+        inset -18px -20px 34px rgba(0, 0, 0, .86),
+        inset 0 0 24px rgba(219, 226, 229, .12),
+        0 0 26px rgba(225, 232, 235, .11);
+}
+
+.orb::after {
+    z-index: 3;
+    inset: 13.5%;
+    border: 1px solid rgba(245, 248, 249, .19);
+    background:
+        radial-gradient(ellipse at 35% 20%, rgba(255, 255, 255, .23), transparent 25%),
+        linear-gradient(145deg, rgba(255, 255, 255, .11), transparent 30% 72%, rgba(222, 229, 232, .09));
+    box-shadow:
+        inset 2px 3px 8px rgba(255, 255, 255, .2),
+        inset -5px -7px 15px rgba(0, 0, 0, .32);
+    pointer-events: none;
+}
+
+.orb-geometry {
+    z-index: 2;
+}
+
+.sphere-rim {
+    fill: none;
+    stroke: rgba(248, 250, 251, .52);
+    stroke-width: 1.15;
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, .28));
+}
+
+.sphere-highlight {
+    fill: rgba(255, 255, 255, .2);
+    filter: blur(7px);
+    transform: rotate(-31deg);
+    transform-origin: 158px 125px;
+}
+
+.sphere-shell {
+    opacity: .46;
+    mix-blend-mode: screen;
+}
+
+.sphere-interior {
+    mix-blend-mode: screen;
+}
+
+.sphere-haze {
+    opacity: .68;
+    animation: core-breathe 5.6s ease-in-out infinite;
+}
+
+.energy-filament,
+.energy-current {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.energy-filament {
+    stroke: url(#filamentLight);
+    stroke-width: 1.15;
+    opacity: .42;
+    stroke-dasharray: 150 420;
+    animation: filament-flow 12s ease-in-out infinite alternate;
+}
+
+.filament-two {
+    stroke-width: .8;
+    opacity: .34;
+    animation-duration: 15s;
+    animation-direction: alternate-reverse;
+}
+
+.filament-three {
+    stroke-width: 1.35;
+    opacity: .3;
+    animation-duration: 18s;
+}
+
+.filament-four {
+    stroke-width: .7;
+    opacity: .3;
+    animation-duration: 21s;
+    animation-direction: alternate-reverse;
+}
+
+.energy-current {
+    stroke: rgba(255, 255, 255, .26);
+    stroke-width: .75;
+    stroke-dasharray: 2 9;
+    opacity: .55;
+    animation: current-drift 9s linear infinite;
+}
+
+.energy-particle {
+    fill: #fff;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, .9));
+    opacity: .66;
+    animation: particle-glint 3.8s ease-in-out infinite alternate;
+}
+
+.particle-two {
+    animation-delay: -1.2s;
+}
+
+.particle-three {
+    animation-delay: -2.4s;
+}
+
+.particle-four {
+    animation-delay: -.7s;
+}
+
+.orbit {
+    stroke: rgba(235, 240, 242, .27);
+    stroke-width: .7;
+}
+
+.orbit-a {
+    stroke-dasharray: 2 7;
+    stroke: rgba(255, 255, 255, .32);
+}
+
+.orbit-b {
+    stroke-dasharray: 38 8 2 8;
+    stroke: rgba(226, 232, 235, .19);
+}
+
+.orbit-c {
+    stroke-dasharray: 44 12;
+    stroke: rgba(255, 255, 255, .2);
+}
+
+.orbit-tilt {
+    fill: rgba(255, 255, 255, .7);
+    stroke: rgba(237, 242, 244, .24);
+    stroke-width: .65;
+}
+
+.mechanical-ring {
+    stroke: rgba(245, 248, 249, .32);
+    stroke-width: .8;
+}
+
+.orb-center {
+    z-index: 4;
+    width: 8%;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    mix-blend-mode: screen;
+}
+
+.core-symbol {
+    font-size: clamp(10px, 1vw, 14px);
+    opacity: .38;
+    text-shadow: 0 0 9px rgba(255, 255, 255, .78);
+}
+
+:root[data-theme] .orb-center {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+:root[data-theme] .core-symbol {
+    color: rgba(255, 255, 255, .55);
+}
+
+:root[data-theme] .core-point {
+    fill: #fff;
+    filter: drop-shadow(0 0 7px rgba(255, 255, 255, .98));
+}
+
+.orb[data-state="listening"] .energy-filament {
+    opacity: .7;
+    animation-duration: 5.5s;
+}
+
+.orb[data-state="listening"] .sphere-shell {
+    opacity: .66;
+}
+
+.orb[data-state="thinking"] .energy-filament {
+    opacity: .75;
+    animation-duration: 3.8s;
+}
+
+.orb[data-state="thinking"] .energy-current {
+    animation-duration: 3.5s;
+    opacity: .8;
+}
+
+.orb[data-state="speaking"] .sphere-haze,
+.orb[data-state="speaking"] .sphere-shell {
+    animation: speaking-pulse .42s ease-in-out infinite alternate;
+}
+
+.orb[data-state="speaking"] .energy-particle {
+    opacity: .95;
+}
+
+.orb[data-state="interrupting"] .sphere-shell {
+    animation: interrupt-pulse .2s ease-out 1 forwards;
+}
+
+.orb[data-state="tool-execution"] .orbit {
+    stroke: rgba(255, 255, 255, .48);
+    stroke-dasharray: 4 4;
+}
+
+.orb[data-state="tool-execution"] .energy-current {
+    animation-duration: 2s;
+}
+
+@keyframes filament-flow {
+    from {
+        stroke-dashoffset: 0;
+        transform: translate(-2px, 2px);
+    }
+
+    to {
+        stroke-dashoffset: -285;
+        transform: translate(3px, -2px);
+    }
+}
+
+@keyframes current-drift {
+    to {
+        stroke-dashoffset: -88;
+    }
+}
+
+@keyframes particle-glint {
+    from {
+        opacity: .28;
+        transform: scale(.72);
+    }
+
+    to {
+        opacity: .9;
+        transform: scale(1.16);
+    }
+}

@@ -7,29 +7,48 @@ from types import SimpleNamespace
 
 try:
     import sounddevice as sd
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
+except ModuleNotFoundError as error:  # pragma: no cover - optional dependency
+    _SOUNDDEVICE_IMPORT_ERROR = str(error)
+
     class _MissingInputStream:
         def __init__(self, *args, **kwargs):
-            raise RuntimeError("sounddevice is unavailable")
+            raise RuntimeError(
+                "Microphone capture requires sounddevice in the active "
+                f"Python environment: {_SOUNDDEVICE_IMPORT_ERROR}"
+            )
 
     sd = SimpleNamespace(RawInputStream=_MissingInputStream)
 
 try:
     from vosk import Model, KaldiRecognizer
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
+except ModuleNotFoundError as error:  # pragma: no cover - optional dependency
+    _VOSK_IMPORT_ERROR = str(error)
+
     class _MissingModel:
         def __init__(self, *args, **kwargs):
-            raise RuntimeError("vosk model is unavailable")
+            raise RuntimeError(
+                "Speech recognition requires Vosk in the active Python "
+                f"environment: {_VOSK_IMPORT_ERROR}"
+            )
 
     class _MissingKaldiRecognizer:
         def __init__(self, *args, **kwargs):
-            raise RuntimeError("vosk is unavailable")
+            raise RuntimeError(
+                "Speech recognition requires Vosk in the active Python "
+                f"environment: {_VOSK_IMPORT_ERROR}"
+            )
 
         def AcceptWaveform(self, *args, **kwargs):
-            raise RuntimeError("vosk is unavailable")
+            raise RuntimeError(
+                "Speech recognition requires Vosk in the active Python "
+                f"environment: {_VOSK_IMPORT_ERROR}"
+            )
 
         def FinalResult(self):
-            raise RuntimeError("vosk is unavailable")
+            raise RuntimeError(
+                "Speech recognition requires Vosk in the active Python "
+                f"environment: {_VOSK_IMPORT_ERROR}"
+            )
 
     Model = _MissingModel
     KaldiRecognizer = _MissingKaldiRecognizer
@@ -83,14 +102,18 @@ def listen_once(
 
     def audio_callback(indata, frames, time_info, status):
         if status:
-            print(f"\nMicrophone status: {status}")
+            stream_statuses.add(str(status))
 
-        audio_queue.put(bytes(indata))
+        audio_data = bytes(indata)
+        if audio_data:
+            audio_queue.put(audio_data)
 
     print("Listening... Speak now.")
 
     deadline = time.monotonic() + timeout
     recognized_segments = []
+    captured_audio_bytes = 0
+    stream_statuses = set()
 
     if stop_event and stop_event.is_set():
         return ""
@@ -119,6 +142,9 @@ def listen_once(
                 except queue.Empty:
                     continue
 
+                if not audio_data:
+                    continue
+                captured_audio_bytes += len(audio_data)
                 recognition_started = time.perf_counter()
                 accepted = recognizer.AcceptWaveform(audio_data)
                 transcription_seconds += (
@@ -137,6 +163,10 @@ def listen_once(
                             return text
                         recognized_segments.append(text)
 
+            if not captured_audio_bytes:
+                log_event("VOICE INPUT EMPTY")
+                return ""
+
             recognition_started = time.perf_counter()
             result = json.loads(recognizer.FinalResult())
             transcription_seconds += (
@@ -148,6 +178,11 @@ def listen_once(
             return " ".join(recognized_segments)
     finally:
         total_seconds = time.perf_counter() - capture_started
+        if stream_statuses:
+            log_event(
+                "VOICE INPUT DEVICE STATUS: "
+                + "; ".join(sorted(stream_statuses))
+            )
         log_event(
             "VOICE INPUT CAPTURE: "
             f"{max(0.0, total_seconds - transcription_seconds) * 1000:.0f} ms"
