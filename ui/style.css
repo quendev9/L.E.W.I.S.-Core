@@ -4218,7 +4218,9 @@ body.focus-mode-active {
 }
 
 .hud.focus-mode .orb {
-    width: min(56vw, 68vh, 660px);
+    --orb-size: min(56vw, 64vh, 660px);
+    width: min(var(--orb-size), 100%);
+    max-height: none;
 }
 
 .hud.focus-mode.chat-expanded .hero {
@@ -4226,7 +4228,8 @@ body.focus-mode-active {
 }
 
 .hud.focus-mode.chat-expanded .orb {
-    width: min(34vw, 40vh, 390px);
+    --orb-size: min(34vw, 40vh, 390px);
+    width: min(var(--orb-size), 100%);
 }
 
 .hud.focus-mode.chat-expanded .conversation {
@@ -4240,7 +4243,7 @@ body.focus-mode-active {
     }
 
     .hud.focus-mode .orb {
-        width: min(62vw, 52vh, 400px);
+        --orb-size: min(62vw, 52vh, 400px);
     }
 
     .hud.focus-mode.chat-expanded .hero {
@@ -4248,7 +4251,7 @@ body.focus-mode-active {
     }
 
     .hud.focus-mode.chat-expanded .orb {
-        width: min(38vw, 34vh, 270px);
+        --orb-size: min(38vw, 34vh, 270px);
     }
 
     .hud.focus-mode.chat-expanded .conversation {
@@ -4258,7 +4261,7 @@ body.focus-mode-active {
 
 @media (max-height: 500px) {
     .hud.focus-mode .orb {
-        width: min(38vw, 44vh, 300px);
+        --orb-size: min(38vw, 44vh, 300px);
     }
 
     .hud.focus-mode.chat-expanded .hero {
@@ -4266,7 +4269,7 @@ body.focus-mode-active {
     }
 
     .hud.focus-mode.chat-expanded .orb {
-        width: min(32vh, 220px);
+        --orb-size: min(32vh, 220px);
     }
 }
 
@@ -4307,13 +4310,6 @@ body.focus-mode-active {
 
 .orb-geometry {
     z-index: 2;
-}
-
-.sphere-rim {
-    fill: none;
-    stroke: rgba(248, 250, 251, .52);
-    stroke-width: 1.15;
-    filter: drop-shadow(0 0 5px rgba(255, 255, 255, .28));
 }
 
 .sphere-highlight {
@@ -4529,5 +4525,245 @@ body.focus-mode-active {
     to {
         opacity: .9;
         transform: scale(1.16);
+    }
+}
+
+.orb {
+    aspect-ratio: 1 / 1;
+    height: auto;
+    flex: 0 0 auto;
+    filter:
+        drop-shadow(0 0 20px rgba(225, 232, 235, .15))
+        drop-shadow(0 18px 26px rgba(0, 0, 0, .28));
+    transition: filter 700ms ease;
+}
+
+.orb::before {
+    inset: 0;
+    z-index: 0;
+    border: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(237, 241, 243, .17), rgba(212, 220, 224, .055) 42%, transparent 69%);
+    box-shadow: none;
+    filter: blur(9px);
+    pointer-events: none;
+}
+
+.orb::after {
+    inset: 11%;
+    z-index: 3;
+    border: 0;
+    border-radius: 50%;
+    background:
+        radial-gradient(ellipse at 34% 17%, rgba(255, 255, 255, .16), transparent 28%),
+        linear-gradient(145deg, rgba(255, 255, 255, .035), transparent 43% 74%, rgba(225, 231, 234, .035));
+    box-shadow:
+        inset 2px 3px 8px rgba(255, 255, 255, .11),
+        inset -9px -12px 20px rgba(0, 0, 0, .28);
+    pointer-events: none;
+}
+
+.orb-geometry {
+    z-index: 2;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.sphere-shell {
+    opacity: .38;
+    mix-blend-mode: screen;
+    transition: opacity 1.8s ease;
+}
+
+.sphere-highlight,
+.sphere-reflection {
+    fill: none;
+    stroke: rgba(255, 255, 255, .56);
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, .42));
+}
+
+.sphere-highlight {
+    stroke-width: 2.1;
+    opacity: .78;
+    transform: none;
+    transform-origin: center;
+}
+
+.sphere-reflection {
+    stroke-width: 1;
+    opacity: .3;
+}
+
+.inner-mist {
+    opacity: .78;
+    animation: orb-core-breathe 8s ease-in-out infinite;
+}
+
+.energy-flow {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: orb-flow 34s ease-in-out infinite alternate;
+}
+
+.flow-two {
+    animation-duration: 43s;
+    animation-direction: alternate-reverse;
+}
+
+.flow-three {
+    animation-duration: 51s;
+}
+
+.energy-ribbon {
+    fill: none;
+    stroke: url(#currentLight);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.ribbon-glow {
+    stroke-width: 18;
+    opacity: .38;
+    filter: url(#currentGlow);
+}
+
+.ribbon-edge {
+    stroke-width: 1.5;
+    opacity: .72;
+}
+
+.energy-current {
+    fill: none;
+    stroke: rgba(247, 249, 250, .4);
+    stroke-width: .8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    opacity: .32;
+    animation: current-drift 19s linear infinite;
+}
+
+.current-two {
+    opacity: .2;
+    stroke-width: .65;
+    animation-duration: 27s;
+    animation-direction: reverse;
+}
+
+.energy-particle {
+    fill: rgba(255, 255, 255, .84);
+    filter: drop-shadow(0 0 2px rgba(255, 255, 255, .58));
+    opacity: .4;
+    animation: particle-glint 6s ease-in-out infinite alternate;
+}
+
+.core-aura {
+    transform-origin: center;
+    animation: orb-core-breathe 5.5s ease-in-out infinite;
+}
+
+.core-point {
+    opacity: .94;
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, .82));
+}
+
+:root[data-theme] .core-point {
+    fill: url(#corePoint);
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, .82));
+}
+
+.orb[data-state="listening"] .core-aura {
+    animation: orb-core-breathe 3s ease-in-out infinite;
+}
+
+.orb[data-state="listening"] {
+    --orb-speed: 22s;
+    filter:
+        drop-shadow(0 0 25px rgba(236, 241, 243, .21))
+        drop-shadow(0 18px 26px rgba(0, 0, 0, .28));
+}
+
+.orb[data-state="listening"] .energy-ribbon {
+    opacity: .7;
+}
+
+.orb[data-state="thinking"] {
+    --orb-speed: 12s;
+}
+
+.orb[data-state="thinking"] .energy-flow {
+    animation-duration: 15s;
+}
+
+.orb[data-state="thinking"] .core-aura {
+    animation-duration: 2.8s;
+}
+
+.orb[data-state="speaking"] .core-aura {
+    opacity: .9;
+    animation: orb-core-breathe 3s ease-in-out infinite;
+}
+
+.orb[data-state="speaking"] .sphere-shell {
+    opacity: .52;
+    animation: none;
+}
+
+.orb[data-state="interrupting"] .energy-flow,
+.orb[data-state="interrupting"] .energy-current {
+    animation-duration: 42s;
+}
+
+.orb[data-state="interrupting"] .core-aura {
+    animation: orb-core-breathe 7s ease-out 1 both;
+}
+
+.orb[data-state="interrupting"] .sphere-shell {
+    opacity: .38;
+    animation: none;
+}
+
+.orb[data-state="tool-execution"] .energy-flow {
+    animation-duration: 17s;
+}
+
+.orb[data-state="tool-execution"] .core-aura {
+    animation-duration: 3.2s;
+}
+
+.hud:not(.focus-mode) .orb-wrap {
+    height: 100%;
+}
+
+.hud:not(.focus-mode) .orb {
+    width: min(100%, clamp(230px, 31vw, 390px), 42vh);
+}
+
+@keyframes orb-flow {
+    from {
+        opacity: .76;
+        transform: translate(-1px, 1px) scale(.995);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(1px, -1px) scale(1.005);
+    }
+}
+
+@keyframes orb-core-breathe {
+    0%,
+    100% {
+        opacity: .74;
+        transform: scale(.98);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.035);
     }
 }

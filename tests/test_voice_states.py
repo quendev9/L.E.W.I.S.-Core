@@ -53,6 +53,38 @@ class VoiceStateTests(unittest.TestCase):
         self.assertEqual(state["activity"], "READY")
         self.assertEqual(state["last_error"], "Playback failed.")
 
+    def test_core_processing_is_reported_only_while_core_is_running(self):
+        state_during_processing = {}
+        self_test = self
+
+        class FakeLewis:
+            def process(self, message):
+                state_during_processing.update(
+                    {
+                        "message": message,
+                        **self_test.server.get_status(),
+                    }
+                )
+                raise RuntimeError("Core request failed.")
+
+        with (
+            patch.object(self.server, "core_lock", threading.Lock()),
+            patch.object(self.server, "LEWIS_AVAILABLE", True),
+            patch.object(self.server, "lewis", FakeLewis()),
+            patch.object(self.server, "AI_AVAILABLE", False),
+            patch.object(self.server, "get_memory_count", return_value=None),
+            patch.object(self.server, "get_system_data", return_value={}),
+            self.assertRaisesRegex(RuntimeError, "Core request failed"),
+        ):
+            self.server.process_with_lewis("test request")
+
+        self.assertEqual(state_during_processing["message"], "test request")
+        self.assertEqual(state_during_processing["activity"], "PROCESSING")
+        self.assertTrue(state_during_processing["processing"])
+        state_after_failure = self.server.get_state_snapshot()
+        self.assertEqual(state_after_failure["activity"], "READY")
+        self.assertFalse(state_after_failure["processing"])
+
     def test_speaking_begins_only_after_playback_starts(self):
         def fake_speak(text, cancel_event=None, on_playback_start=None):
             self.assertEqual(

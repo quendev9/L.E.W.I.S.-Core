@@ -79,6 +79,7 @@ let voiceSpeaking = false;
 let speechStopPending = false;
 let coreProcessing = false;
 let statusRequestId = 0;
+let statusPollTimer = null;
 let chatRequestId = 0;
 let aiModelSelectionDirty = false;
 let aiModelSelectionSaving = false;
@@ -348,10 +349,7 @@ function updateAdaptiveHudContext() {
         voiceOutputPending ||
         ["listening", "speaking", "interrupting"].includes(orbState);
     const toolActivity =
-        activity.includes("TOOL") &&
-        ["EXECUTION", "RUNNING", "FAILED", "ERROR", "COMPLETE"].some(
-            (state) => activity.includes(state)
-        );
+        ["TOOL EXECUTION", "EXECUTING"].includes(activity);
     const systemMonitoring =
         activity.includes("MONITOR") ||
         activity.includes("DIAGNOSTIC") ||
@@ -361,7 +359,9 @@ function updateAdaptiveHudContext() {
         ? "voice"
         : toolActivity || orbState === "tool-execution"
             ? "tool-execution"
-            : requestInProgress || coreProcessing || orbState === "thinking"
+            : coreProcessing ||
+                ["PROCESSING", "THINKING"].includes(activity) ||
+                orbState === "thinking"
                 ? "processing"
                 : systemMonitoring
                     ? "system-monitoring"
@@ -431,28 +431,36 @@ function updateClock() {
     clock.appendChild(date);
 }
 
+const ORB_STATE_LABELS = Object.freeze({
+    idle: "STANDBY",
+    listening: "LISTENING",
+    thinking: "THINKING",
+    speaking: "SPEAKING",
+    interrupting: "INTERRUPTING",
+    "tool-execution": "EXECUTING"
+});
+
 function setOrbState(state) {
     if (!coreOrb) return;
 
-    coreOrb.dataset.state = state;
+    const activeState = Object.prototype.hasOwnProperty.call(
+        ORB_STATE_LABELS,
+        state
+    )
+        ? state
+        : "idle";
+
+    coreOrb.dataset.state = activeState;
     updateAdaptiveHudContext();
 
     const label = document.getElementById("orbStatusLabel");
-    const labels = {
-        idle: "STANDBY",
-        listening: "LISTENING",
-        thinking: "PROCESSING",
-        speaking: "SPEAKING",
-        interrupting: "INTERRUPTING",
-        "tool-execution": "TOOL EXECUTION"
-    };
 
     coreOrb.setAttribute(
         "aria-label",
-        `LEWIS assistant ${labels[state] || labels.idle}`
+        `LEWIS assistant ${ORB_STATE_LABELS[activeState]}`
     );
 
-    if (label) label.textContent = labels[state] || labels.idle;
+    if (label) label.textContent = ORB_STATE_LABELS[activeState];
 }
 
 // ==================================================
@@ -2240,8 +2248,7 @@ async function sendCommand(command) {
     requestInProgress = true;
     syncConversationControls();
     taskStartedAt = Date.now();
-    setConversationState("PROCESSING");
-    setOrbState("thinking");
+    updateHUDStatus();
 
     const requestId = ++chatRequestId;
     const requestConversationId = activeConversationId;
@@ -2809,7 +2816,6 @@ async function stopVoiceSession() {
 
         if (data.speech_stop_requested === true) {
             speechStopPending = true;
-            setOrbState("interrupting");
         }
 
         if (typeof data.voice_session_active === "boolean") {
@@ -2864,7 +2870,6 @@ async function stopSpeaking() {
         });
 
         speechStopPending = data.speech_stop_requested === true;
-        if (speechStopPending) setOrbState("interrupting");
         if (data.message) addMessage("SYSTEM", data.message);
         await updateHUDStatus();
     } catch (error) {
@@ -3014,14 +3019,45 @@ function syncAIModelControls(data) {
 // LIVE HUD TELEMETRY
 // ==================================================
 
+function scheduleHudStatusPoll(statusAvailable) {
+    if (statusPollTimer !== null) {
+        clearTimeout(statusPollTimer);
+    }
+
+    const activeWork =
+        (statusAvailable && requestInProgress) ||
+        coreProcessing ||
+        pushToTalkProcessing ||
+        voiceOutputPending ||
+        speechStopPending;
+    const activeVoice =
+        voiceSessionActive ||
+        voiceSessionStopping ||
+        pushToTalkActive ||
+        voiceSpeaking;
+    const delay = activeWork ? 250 : activeVoice ? 500 : 1000;
+
+    statusPollTimer = setTimeout(() => {
+        statusPollTimer = null;
+        updateHUDStatus();
+    }, delay);
+}
+
 async function updateHUDStatus() {
+    if (statusPollTimer !== null) {
+        clearTimeout(statusPollTimer);
+        statusPollTimer = null;
+    }
+
     const requestId = ++statusRequestId;
+    let statusAvailable = false;
 
     try {
         const data = await apiRequest("/api/status");
         if (requestId !== statusRequestId) return;
 
         const coreOnline = String(data.core || "").toUpperCase() === "ONLINE";
+        statusAvailable = coreOnline;
 
         const systemStatusItem = document.getElementById("systemStatusItem");
 
@@ -3090,10 +3126,9 @@ async function updateHUDStatus() {
 
         // VOICE STATUS
         const activity = String(data.activity || "READY").toUpperCase();
-        const listening = Boolean(
-            data.listening || data.push_to_talk_active
-        );
+        const listening = Boolean(data.listening);
         const speaking = Boolean(data.speaking);
+        const executing = ["TOOL EXECUTION", "EXECUTING"].includes(activity);
         voiceAvailable = Boolean(data.voice_available);
         voiceOutputAvailable = Boolean(data.voice_output_available);
         voiceOutputPending = Boolean(data.voice_output_pending);
@@ -3105,12 +3140,10 @@ async function updateHUDStatus() {
             Boolean(data.processing) || pushToTalkProcessing;
         pushToTalkActive = Boolean(data.push_to_talk_active);
         lastActivityState = String(data.activity || "READY");
-        const voiceInputActive =
-            listening || voiceSessionActive || pushToTalkActive;
+        const voiceInputActive = listening;
         const processing =
-            requestInProgress ||
             coreProcessing ||
-            activity === "PROCESSING";
+            ["PROCESSING", "THINKING"].includes(activity);
 
         const speechActive = speaking || voiceOutputPending;
         if (speechStopPending && !speechActive) {
@@ -3119,24 +3152,27 @@ async function updateHUDStatus() {
 
         let orbState = "idle";
 
-        if (speechStopPending && speechActive) {
+        if (
+            activity === "INTERRUPTING" ||
+            (speechStopPending && speechActive)
+        ) {
             orbState = "interrupting";
         } else if (speaking) {
             orbState = "speaking";
-        } else if (listening) {
-            orbState = "listening";
+        } else if (executing) {
+            orbState = "tool-execution";
         } else if (processing) {
             orbState = "thinking";
-        } else if (activity === "TOOL EXECUTION") {
-            orbState = "tool-execution";
+        } else if (listening) {
+            orbState = "listening";
         }
 
-        const displayedActivity = processing ? "PROCESSING" : activity;
+        const displayedActivity = ORB_STATE_LABELS[orbState];
         setText("activityStatus", displayedActivity);
         setText("overviewActivity", displayedActivity);
         setOrbState(orbState);
         updateAdaptiveHudContext();
-        setConversationState(processing ? "PROCESSING" : activity);
+        setConversationState(displayedActivity);
 
         setText(
             "taskTitle",
@@ -3148,7 +3184,7 @@ async function updateHUDStatus() {
         );
         setText(
             "taskDuration",
-            taskStartedAt
+            processing && taskStartedAt
                 ? `${Math.max(0, Math.floor((Date.now() - taskStartedAt) / 1000))}s`
                 : "—"
         );
@@ -3284,8 +3320,8 @@ async function updateHUDStatus() {
         setText("voiceCardStatus", "UNAVAILABLE");
         setText("voiceInputState", "Unavailable");
         setText("voiceOutputStatus", "Unavailable");
-        setText("activityStatus", "UNAVAILABLE");
-        setText("overviewActivity", "UNAVAILABLE");
+        setText("activityStatus", ORB_STATE_LABELS.idle);
+        setText("overviewActivity", ORB_STATE_LABELS.idle);
         setText("overviewCpuValue", "Unavailable");
         setText("overviewRamValue", "Unavailable");
         setText("uptimeValue", "Unavailable");
@@ -3335,14 +3371,7 @@ async function updateHUDStatus() {
             stopSpeakingButton.textContent = "STOP SPEECH";
         }
 
-        setOrbState(
-            speechStopPending
-                ? "interrupting"
-                : requestInProgress
-                    ? "thinking"
-                    : "idle"
-        );
-        setConversationState(requestInProgress ? "PROCESSING" : "OFFLINE");
+        setConversationState("OFFLINE");
 
         if (systemStatusItem) {
             systemStatusItem.dataset.status = "offline";
@@ -3351,6 +3380,10 @@ async function updateHUDStatus() {
         }
 
         document.body.classList.add("lewis-offline");
+    } finally {
+        if (requestId === statusRequestId) {
+            scheduleHudStatusPoll(statusAvailable);
+        }
     }
 }
 
@@ -3767,7 +3800,6 @@ updateHUDStatus();
 updateSystemLog();
 updateClock();
 
-setInterval(updateHUDStatus, 1000);
 setInterval(updateSystemLog, 1000);
 setInterval(updateClock, 30_000);
 
