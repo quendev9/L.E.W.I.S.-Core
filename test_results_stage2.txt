@@ -1,0 +1,663 @@
+﻿.venv\Scripts\python : test_closed_cached_client_is_discarded_and_recreated_on_next_request (test_ai_model_lifecycle.Gemi
+niClientLifecycleTests.test_closed_cached_client_is_discarded_and_recreated_on_next_request) ... ok
+At line:1 char:1
++ .venv\Scripts\python -m unittest discover tests/ -v 2>&1 | Out-File - ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_closed_cac...request) ... ok:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+test_connection_test_uses_a_temporary_non_conversation_request 
+(test_ai_model_lifecycle.GeminiClientLifecycleTests.test_connection_test_uses_a_temporary_non_conversation_request) ... 
+ok
+test_conversations_use_separate_sdk_chat_histories 
+(test_ai_model_lifecycle.GeminiClientLifecycleTests.test_conversations_use_separate_sdk_chat_histories) ... ok
+test_failed_chat_creation_closes_unpublished_client 
+(test_ai_model_lifecycle.GeminiClientLifecycleTests.test_failed_chat_creation_closes_unpublished_client) ... ok
+test_first_and_consecutive_requests_retain_one_live_client 
+(test_ai_model_lifecycle.GeminiClientLifecycleTests.test_first_and_consecutive_requests_retain_one_live_client) ... ok
+test_shutdown_closes_client_once_and_later_request_uses_new_client 
+(test_ai_model_lifecycle.GeminiClientLifecycleTests.test_shutdown_closes_client_once_and_later_request_uses_new_client) 
+... ok
+test_context_never_exceeds_character_limit 
+(test_context_builder.ContextBuilderTests.test_context_never_exceeds_character_limit) ... ok
+test_missing_conversation_returns_fallback 
+(test_context_builder.ContextBuilderTests.test_missing_conversation_returns_fallback) ... ok
+test_negative_limits_raise_value_error (test_context_builder.ContextBuilderTests.test_negative_limits_raise_value_error) 
+... ok
+test_relevant_older_message_is_retrieved 
+(test_context_builder.ContextBuilderTests.test_relevant_older_message_is_retrieved) ... ok
+test_relevant_personal_memory_is_included 
+(test_context_builder.ContextBuilderTests.test_relevant_personal_memory_is_included) ... ok
+test_unrelated_memory_is_not_selected_when_limit_is_one 
+(test_context_builder.ContextBuilderTests.test_unrelated_memory_is_not_selected_when_limit_is_one) ... ok
+test_zero_character_limit_returns_empty_string 
+(test_context_builder.ContextBuilderTests.test_zero_character_limit_returns_empty_string) ... ok
+test_zero_recent_messages_does_not_include_recent_history 
+(test_context_builder.ContextBuilderTests.test_zero_recent_messages_does_not_include_recent_history) ... ok
+test_ai_failure_is_recorded_and_returns_a_controlled_fallback 
+(test_conversation_integrity.ConversationIntegrityTests.test_ai_failure_is_recorded_and_returns_a_controlled_fallback) 
+... ok
+test_assistant_suggestions_remain_conversation_only 
+(test_conversation_integrity.ConversationIntegrityTests.test_assistant_suggestions_remain_conversation_only) ... ok
+test_closed_client_failure_keeps_memory_and_console_loop_usable 
+(test_conversation_integrity.ConversationIntegrityTests.test_closed_client_failure_keeps_memory_and_console_loop_usable) 
+... ok
+test_context_reads_only_the_requested_conversation_history 
+(test_conversation_integrity.ConversationIntegrityTests.test_context_reads_only_the_requested_conversation_history) ... 
+ok
+test_conversations_share_long_term_memory_not_each_others_history (test_conversation_integrity.ConversationIntegrityTests
+.test_conversations_share_long_term_memory_not_each_others_history) ... ok
+test_corrupt_conversation_file_is_preserved 
+(test_conversation_integrity.ConversationIntegrityTests.test_corrupt_conversation_file_is_preserved) ... ok
+test_deleting_conversation_preserves_long_term_memory 
+(test_conversation_integrity.ConversationIntegrityTests.test_deleting_conversation_preserves_long_term_memory) ... ok
+test_failed_conversation_write_keeps_previous_file 
+(test_conversation_integrity.ConversationIntegrityTests.test_failed_conversation_write_keeps_previous_file) ... ok
+test_gemini_429_explains_quota_and_records_provider_detail 
+(test_conversation_integrity.ConversationIntegrityTests.test_gemini_429_explains_quota_and_records_provider_detail) ... 
+ok
+test_gemini_503_does_not_stop_interactive_loop 
+(test_conversation_integrity.ConversationIntegrityTests.test_gemini_503_does_not_stop_interactive_loop) ... ok
+test_groq_http_statuses_have_provider_specific_fallbacks 
+(test_conversation_integrity.ConversationIntegrityTests.test_groq_http_statuses_have_provider_specific_fallbacks) ... ok
+test_groq_provider_uses_selected_backend 
+(test_conversation_integrity.ConversationIntegrityTests.test_groq_provider_uses_selected_backend) ... ok
+test_new_conversation_command_stays_in_original_conversation 
+(test_conversation_integrity.ConversationIntegrityTests.test_new_conversation_command_stays_in_original_conversation) 
+... ok
+test_switch_command_persists_selection_and_saves_exchange 
+(test_conversation_integrity.ConversationIntegrityTests.test_switch_command_persists_selection_and_saves_exchange) ... ok
+test_user_correction_updates_project_decision_history 
+(test_conversation_integrity.ConversationIntegrityTests.test_user_correction_updates_project_decision_history) ... ok
+test_creator_answer_uses_ai_with_provider_identity_and_no_emoji 
+(test_creator_identity.TestLewisCreatorIdentity.test_creator_answer_uses_ai_with_provider_identity_and_no_emoji) ... ok
+test_creator_questions_reach_ai (test_creator_identity.TestLewisCreatorIdentity.test_creator_questions_reach_ai) ... ok
+test_identity_names_quen_as_creator (test_creator_identity.TestLewisCreatorIdentity.test_identity_names_quen_as_creator) 
+... ok
+test_groq_selection_requires_provider_credentials 
+(test_groq_provider.GroqProviderTests.test_groq_selection_requires_provider_credentials) ... ok
+test_http_error_detail_is_kept_and_configured_key_is_redacted 
+(test_groq_provider.GroqProviderTests.test_http_error_detail_is_kept_and_configured_key_is_redacted) ... ok
+test_http_error_statuses_preserve_provider_messages 
+(test_groq_provider.GroqProviderTests.test_http_error_statuses_preserve_provider_messages) ... ok
+test_keys_are_used_round_robin (test_groq_provider.GroqProviderTests.test_keys_are_used_round_robin) ... ok
+test_manual_selection_dispatches_to_the_selected_provider_and_model 
+(test_groq_provider.GroqProviderTests.test_manual_selection_dispatches_to_the_selected_provider_and_model) ... ok
+test_missing_key_is_reported (test_groq_provider.GroqProviderTests.test_missing_key_is_reported) ... ok
+test_non_json_error_body_is_preserved_and_configured_key_redacted 
+(test_groq_provider.GroqProviderTests.test_non_json_error_body_is_preserved_and_configured_key_redacted) ... ok
+test_provider_info_reports_groq_configuration 
+(test_groq_provider.GroqProviderTests.test_provider_info_reports_groq_configuration) ... ok
+test_rate_limited_key_retries_with_next_key 
+(test_groq_provider.GroqProviderTests.test_rate_limited_key_retries_with_next_key) ... ok
+test_requested_groq_models_are_selectable_only_when_configured 
+(test_groq_provider.GroqProviderTests.test_requested_groq_models_are_selectable_only_when_configured) ... ok
+test_selected_groq_model_reaches_the_http_request 
+(test_groq_provider.GroqProviderTests.test_selected_groq_model_reaches_the_http_request) ... ok
+test_unsupported_manual_selection_is_rejected 
+(test_groq_provider.GroqProviderTests.test_unsupported_manual_selection_is_rejected) ... ok
+test_create_and_reopen_conversations_preserves_history 
+(test_hud_conversations.HUDConversationTests.test_create_and_reopen_conversations_preserves_history) ... ERROR
+test_deleting_active_conversation_selects_remaining_or_empty_state 
+(test_hud_conversations.HUDConversationTests.test_deleting_active_conversation_selects_remaining_or_empty_state) ... 
+ERROR
+test_deleting_inactive_conversation_preserves_active_history 
+(test_hud_conversations.HUDConversationTests.test_deleting_inactive_conversation_preserves_active_history) ... ERROR
+test_rename_persists_title_without_changing_active_history 
+(test_hud_conversations.HUDConversationTests.test_rename_persists_title_without_changing_active_history) ... ERROR
+test_rename_rejects_empty_oversized_and_unknown_titles 
+(test_hud_conversations.HUDConversationTests.test_rename_rejects_empty_oversized_and_unknown_titles) ... ERROR
+test_hud_voice_ptt (unittest.loader._FailedTest.test_hud_voice_ptt) ... ERROR
+test_ai_connection_test_uses_the_configured_provider_probe 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_ai_connection_test_uses_the_configured_provider_probe) ... ERROR
+test_ai_model_selection_persists_to_server_settings 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_ai_model_selection_persists_to_server_settings) ... ERROR
+test_conversation_metadata_preserves_messages_and_updates_organization 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_conversation_metadata_preserves_messages_and_updates_organization) ... 
+ERROR
+test_conversation_search_returns_matching_saved_message 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_conversation_search_returns_matching_saved_message) ... ERROR
+test_memory_workspace_reads_and_filters_core_memory 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_memory_workspace_reads_and_filters_core_memory) ... ERROR
+test_memory_workspace_rejects_delete_or_unrecognized_fields 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_memory_workspace_rejects_delete_or_unrecognized_fields) ... ERROR
+test_memory_workspace_updates_a_record_and_preserves_history 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_memory_workspace_updates_a_record_and_preserves_history) ... ERROR
+test_project_workspace_includes_linked_conversations 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_project_workspace_includes_linked_conversations) ... ERROR
+test_project_workspace_lists_only_persisted_facts 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_project_workspace_lists_only_persisted_facts) ... ERROR
+test_unlinking_active_conversation_clears_runtime_project_context 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_unlinking_active_conversation_clears_runtime_project_context) ... ERROR
+test_voice_output_preference_persists_to_server_settings 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_voice_output_preference_persists_to_server_settings) ... ERROR
+test_workspace_search_rejects_oversized_query 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_workspace_search_rejects_oversized_query) ... ERROR
+test_response_emoji_are_removed_without_changing_code 
+(test_identity.AssistantIdentityTests.test_response_emoji_are_removed_without_changing_code) ... ok
+test_shared_identity_and_response_requirements 
+(test_identity.AssistantIdentityTests.test_shared_identity_and_response_requirements) ... ok
+test_correction_prefix_preserves_corrected_fact 
+(test_memory_extraction.MemoryExtractionTests.test_correction_prefix_preserves_corrected_fact) ... ok
+test_explicit_project_choice_is_distinguished_from_idea 
+(test_memory_extraction.MemoryExtractionTests.test_explicit_project_choice_is_distinguished_from_idea) ... ok
+test_explicit_relationship_is_preserved 
+(test_memory_extraction.MemoryExtractionTests.test_explicit_relationship_is_preserved) ... ok
+test_fictional_and_quoted_statements_are_not_extracted 
+(test_memory_extraction.MemoryExtractionTests.test_fictional_and_quoted_statements_are_not_extracted) ... ok
+test_into_phrasings_are_extracted_as_interests 
+(test_memory_extraction.MemoryExtractionTests.test_into_phrasings_are_extracted_as_interests) ... ok
+test_multiple_first_person_facts_in_one_sentence_stay_separate 
+(test_memory_extraction.MemoryExtractionTests.test_multiple_first_person_facts_in_one_sentence_stay_separate) ... ok
+test_named_entity_and_pronoun_relationship 
+(test_memory_extraction.MemoryExtractionTests.test_named_entity_and_pronoun_relationship) ... ok
+test_named_entity_variants_are_extracted 
+(test_memory_extraction.MemoryExtractionTests.test_named_entity_variants_are_extracted) ... ok
+test_personal_memory_still_uses_user_as_subject 
+(test_memory_extraction.MemoryExtractionTests.test_personal_memory_still_uses_user_as_subject) ... ok
+test_plan_idea_and_decision_have_distinct_status 
+(test_memory_extraction.MemoryExtractionTests.test_plan_idea_and_decision_have_distinct_status) ... ok
+test_possessive_entity_name_phrasing_is_extracted 
+(test_memory_extraction.MemoryExtractionTests.test_possessive_entity_name_phrasing_is_extracted) ... ok
+test_process_memory_routes_project_facts_to_project_storage 
+(test_memory_extraction.MemoryExtractionTests.test_process_memory_routes_project_facts_to_project_storage) ... ok
+test_questions_and_hypotheticals_are_not_extracted_as_facts 
+(test_memory_extraction.MemoryExtractionTests.test_questions_and_hypotheticals_are_not_extracted_as_facts) ... ok
+test_temporary_statement_is_not_stored 
+(test_memory_extraction.MemoryExtractionTests.test_temporary_statement_is_not_stored) ... ok
+test_unresolved_pronoun_is_not_saved_as_entity 
+(test_memory_extraction.MemoryExtractionTests.test_unresolved_pronoun_is_not_saved_as_entity) ... ok
+test_absent_memory_question_gets_an_honest_answer_without_ai 
+(test_memory_storage.MemoryStorageTests.test_absent_memory_question_gets_an_honest_answer_without_ai) ... ok
+test_ambiguous_partial_name_lookup_does_not_choose_a_fact 
+(test_memory_storage.MemoryStorageTests.test_ambiguous_partial_name_lookup_does_not_choose_a_fact) ... ok
+test_confirmed_decision_cannot_be_overwritten_by_a_plan 
+(test_memory_storage.MemoryStorageTests.test_confirmed_decision_cannot_be_overwritten_by_a_plan) ... ok
+test_corrupt_project_json_is_not_treated_as_empty_memory 
+(test_memory_storage.MemoryStorageTests.test_corrupt_project_json_is_not_treated_as_empty_memory) ... ok
+test_corrupted_json_raises_without_overwriting_data 
+(test_memory_storage.MemoryStorageTests.test_corrupted_json_raises_without_overwriting_data) ... ok
+test_distinct_project_decisions_are_not_treated_as_corrections 
+(test_memory_storage.MemoryStorageTests.test_distinct_project_decisions_are_not_treated_as_corrections) ... ok
+test_existing_retrieval_apis_and_lewis_memory_flows_work 
+(test_memory_storage.MemoryStorageTests.test_existing_retrieval_apis_and_lewis_memory_flows_work) ... ok
+test_explicit_project_choice_can_be_recalled 
+(test_memory_storage.MemoryStorageTests.test_explicit_project_choice_can_be_recalled) ... ok
+test_extracted_user_correction_updates_memory_and_keeps_history 
+(test_memory_storage.MemoryStorageTests.test_extracted_user_correction_updates_memory_and_keeps_history) ... ok
+test_failed_persistence_is_reported (test_memory_storage.MemoryStorageTests.test_failed_persistence_is_reported) ... ok
+test_failed_project_write_preserves_existing_file 
+(test_memory_storage.MemoryStorageTests.test_failed_project_write_preserves_existing_file) ... ok
+test_failed_update_preserves_existing_memory_file 
+(test_memory_storage.MemoryStorageTests.test_failed_update_preserves_existing_memory_file) ... ok
+test_generated_prompt_separates_memory_from_suggestions 
+(test_memory_storage.MemoryStorageTests.test_generated_prompt_separates_memory_from_suggestions) ... ok
+test_generic_project_key_does_not_match_every_project 
+(test_memory_storage.MemoryStorageTests.test_generic_project_key_does_not_match_every_project) ... ok
+test_idea_does_not_overwrite_a_confirmed_project_decision 
+(test_memory_storage.MemoryStorageTests.test_idea_does_not_overwrite_a_confirmed_project_decision) ... ok
+test_invalid_project_fact_is_rejected_before_creating_file 
+(test_memory_storage.MemoryStorageTests.test_invalid_project_fact_is_rejected_before_creating_file) ... ok
+test_latest_projects_are_returned_in_timestamp_order 
+(test_memory_storage.MemoryStorageTests.test_latest_projects_are_returned_in_timestamp_order) ... ok
+test_legacy_and_lewis_capture_share_project_storage_and_deduplicate 
+(test_memory_storage.MemoryStorageTests.test_legacy_and_lewis_capture_share_project_storage_and_deduplicate) ... ok
+test_legacy_memories_migrate_and_keep_fields_and_categories 
+(test_memory_storage.MemoryStorageTests.test_legacy_memories_migrate_and_keep_fields_and_categories) ... ok
+test_lewis_gemini_request_and_event_log_flow_remains_wired 
+(test_memory_storage.MemoryStorageTests.test_lewis_gemini_request_and_event_log_flow_remains_wired) ... ok
+test_lewis_routes_latest_project_query_to_memory 
+(test_memory_storage.MemoryStorageTests.test_lewis_routes_latest_project_query_to_memory) ... ok
+test_local_capture_starts_without_gemini_credentials 
+(test_memory_storage.MemoryStorageTests.test_local_capture_starts_without_gemini_credentials) ... ok
+test_main_entrypoint_captures_restarts_recalls_and_rejects_nonfacts 
+(test_memory_storage.MemoryStorageTests.test_main_entrypoint_captures_restarts_recalls_and_rejects_nonfacts) ... ok
+test_multivalue_categories_keep_distinct_records_and_deduplicate 
+(test_memory_storage.MemoryStorageTests.test_multivalue_categories_keep_distinct_records_and_deduplicate) ... ok
+test_named_robot_can_be_recalled_by_common_question_forms 
+(test_memory_storage.MemoryStorageTests.test_named_robot_can_be_recalled_by_common_question_forms) ... ok
+test_new_memory_has_id_timestamps_and_persists 
+(test_memory_storage.MemoryStorageTests.test_new_memory_has_id_timestamps_and_persists) ... ok
+test_personal_and_project_memories_both_persist 
+(test_memory_storage.MemoryStorageTests.test_personal_and_project_memories_both_persist) ... ok
+test_project_fact_corrections_update_with_history_and_deduplicate 
+(test_memory_storage.MemoryStorageTests.test_project_fact_corrections_update_with_history_and_deduplicate) ... ok
+test_project_fact_lookup_is_scoped_to_the_selected_project 
+(test_memory_storage.MemoryStorageTests.test_project_fact_lookup_is_scoped_to_the_selected_project) ... ok
+test_project_idea_is_not_recalled_as_a_chosen_component 
+(test_memory_storage.MemoryStorageTests.test_project_idea_is_not_recalled_as_a_chosen_component) ... ok
+test_project_lifecycle_status_updates_without_duplicate 
+(test_memory_storage.MemoryStorageTests.test_project_lifecycle_status_updates_without_duplicate) ... ok
+test_project_name_updates_replace_stale_names_and_keep_history 
+(test_memory_storage.MemoryStorageTests.test_project_name_updates_replace_stale_names_and_keep_history) ... ok
+test_restart_in_fresh_process_preserves_personal_and_project_memory 
+(test_memory_storage.MemoryStorageTests.test_restart_in_fresh_process_preserves_personal_and_project_memory) ... ok
+test_schema_round_trips_non_user_subject_and_predicate 
+(test_memory_storage.MemoryStorageTests.test_schema_round_trips_non_user_subject_and_predicate) ... ok
+test_single_value_updates_keep_id_and_creation_time 
+(test_memory_storage.MemoryStorageTests.test_single_value_updates_keep_id_and_creation_time) ... ok
+test_structured_data_is_validated_before_write 
+(test_memory_storage.MemoryStorageTests.test_structured_data_is_validated_before_write) ... ok
+test_unreadable_file_does_not_look_like_empty_memory 
+(test_memory_storage.MemoryStorageTests.test_unreadable_file_does_not_look_like_empty_memory) ... ok
+test_api_server_error_is_transient_and_http_error_body_is_reported 
+(test_openrouter_provider.OpenRouterProviderTests.test_api_server_error_is_transient_and_http_error_body_is_reported) 
+... ok
+test_connection_test_sends_fixed_probe_to_selected_provider 
+(test_openrouter_provider.OpenRouterProviderTests.test_connection_test_sends_fixed_probe_to_selected_provider) ... ok
+test_http_error_body_is_preserved_and_key_is_redacted 
+(test_openrouter_provider.OpenRouterProviderTests.test_http_error_body_is_preserved_and_key_is_redacted) ... ok
+test_invalid_key_http_error_is_provider_specific 
+(test_openrouter_provider.OpenRouterProviderTests.test_invalid_key_http_error_is_provider_specific) ... ok
+test_missing_key_fails_without_sending_request 
+(test_openrouter_provider.OpenRouterProviderTests.test_missing_key_fails_without_sending_request) ... ok
+test_openrouter_is_available_and_reports_key_configuration 
+(test_openrouter_provider.OpenRouterProviderTests.test_openrouter_is_available_and_reports_key_configuration) ... ok
+test_request_uses_free_router_and_parses_response 
+(test_openrouter_provider.OpenRouterProviderTests.test_request_uses_free_router_and_parses_response) ... ok
+test_selected_model_is_sent_and_selection_switches_backend 
+(test_openrouter_provider.OpenRouterProviderTests.test_selected_model_is_sent_and_selection_switches_backend) ... ok
+test_unsupported_response_content_is_reported 
+(test_openrouter_provider.OpenRouterProviderTests.test_unsupported_response_content_is_reported) ... ok
+test_capture_callback_and_timings_do_not_log_transcript 
+(test_speech_input.SpeechInputTests.test_capture_callback_and_timings_do_not_log_transcript) ... ok
+test_empty_capture_does_not_finalize_a_transcript 
+(test_speech_input.SpeechInputTests.test_empty_capture_does_not_finalize_a_transcript) ... ok
+test_microphone_startup_error_is_preserved 
+(test_speech_input.SpeechInputTests.test_microphone_startup_error_is_preserved) ... ok
+test_push_to_talk_collects_segments_until_release 
+(test_speech_input.SpeechInputTests.test_push_to_talk_collects_segments_until_release) ... ok
+test_local_engine_uses_one_thread_across_callers 
+(test_speech_output.SpeechOutputTests.test_local_engine_uses_one_thread_across_callers) ... ok
+test_local_speech_rejects_missing_completion_event 
+(test_speech_output.SpeechOutputTests.test_local_speech_rejects_missing_completion_event) ... ok
+test_local_speech_reports_interruption_as_incomplete 
+(test_speech_output.SpeechOutputTests.test_local_speech_reports_interruption_as_incomplete) ... ok
+test_local_speech_reports_start_and_completed_utterance 
+(test_speech_output.SpeechOutputTests.test_local_speech_reports_start_and_completed_utterance) ... ok
+test_prepare_speech_removes_markdown_without_losing_content 
+(test_speech_output.SpeechOutputTests.test_prepare_speech_removes_markdown_without_losing_content) ... ok
+test_speak_does_not_report_success_when_local_engine_fails 
+(test_speech_output.SpeechOutputTests.test_speak_does_not_report_success_when_local_engine_fails) ... ok
+test_speak_uses_local_voice_and_propagates_failure 
+(test_speech_output.SpeechOutputTests.test_speak_uses_local_voice_and_propagates_failure) ... ok
+test_core_processing_is_reported_only_while_core_is_running 
+(test_voice_states.VoiceStateTests.test_core_processing_is_reported_only_while_core_is_running) ... ERROR
+test_pipeline_state_tracks_activity_and_recovers_after_error 
+(test_voice_states.VoiceStateTests.test_pipeline_state_tracks_activity_and_recovers_after_error) ... ERROR
+test_speaking_begins_only_after_playback_starts 
+(test_voice_states.VoiceStateTests.test_speaking_begins_only_after_playback_starts) ... ERROR
+
+======================================================================
+ERROR: test_create_and_reopen_conversations_preserves_history 
+(test_hud_conversations.HUDConversationTests.test_create_and_reopen_conversations_preserves_history)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_conversations.py", line 36, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_deleting_active_conversation_selects_remaining_or_empty_state 
+(test_hud_conversations.HUDConversationTests.test_deleting_active_conversation_selects_remaining_or_empty_state)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_conversations.py", line 36, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_deleting_inactive_conversation_preserves_active_history 
+(test_hud_conversations.HUDConversationTests.test_deleting_inactive_conversation_preserves_active_history)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_conversations.py", line 36, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_rename_persists_title_without_changing_active_history 
+(test_hud_conversations.HUDConversationTests.test_rename_persists_title_without_changing_active_history)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_conversations.py", line 36, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_rename_rejects_empty_oversized_and_unknown_titles 
+(test_hud_conversations.HUDConversationTests.test_rename_rejects_empty_oversized_and_unknown_titles)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_conversations.py", line 36, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_hud_voice_ptt (unittest.loader._FailedTest.test_hud_voice_ptt)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_hud_voice_ptt
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\AppData\Local\Programs\Python\Python313\Lib\unittest\loader.py", line 403, in 
+_find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\Users\Queen Sieanne Calix\AppData\Local\Programs\Python\Python313\Lib\unittest\loader.py", line 346, in 
+_get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_voice_ptt.py", line 5, in 
+<module>
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+
+======================================================================
+ERROR: test_ai_connection_test_uses_the_configured_provider_probe 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_ai_connection_test_uses_the_configured_provider_probe)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_ai_model_selection_persists_to_server_settings 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_ai_model_selection_persists_to_server_settings)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_conversation_metadata_preserves_messages_and_updates_organization 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_conversation_metadata_preserves_messages_and_updates_organization)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_conversation_search_returns_matching_saved_message 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_conversation_search_returns_matching_saved_message)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_memory_workspace_reads_and_filters_core_memory 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_memory_workspace_reads_and_filters_core_memory)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_memory_workspace_rejects_delete_or_unrecognized_fields 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_memory_workspace_rejects_delete_or_unrecognized_fields)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_memory_workspace_updates_a_record_and_preserves_history 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_memory_workspace_updates_a_record_and_preserves_history)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_project_workspace_includes_linked_conversations 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_project_workspace_includes_linked_conversations)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_project_workspace_lists_only_persisted_facts 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_project_workspace_lists_only_persisted_facts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_unlinking_active_conversation_clears_runtime_project_context 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_unlinking_active_conversation_clears_runtime_project_context)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_voice_output_preference_persists_to_server_settings 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_voice_output_preference_persists_to_server_settings)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+Listening... Speak now.
+Listening... Speak now.
+Listening... Speak now.
+Listening... Speak now.
+LEWIS CORE INITIALIZING
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_workspace_search_rejects_oversized_query 
+(test_hud_workspaces.HUDWorkspaceAPITests.test_workspace_search_rejects_oversized_query)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_hud_workspaces.py", line 62, in 
+setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_core_processing_is_reported_only_while_core_is_running 
+(test_voice_states.VoiceStateTests.test_core_processing_is_reported_only_while_core_is_running)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_voice_states.py", line 23, in setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_pipeline_state_tracks_activity_and_recovers_after_error 
+(test_voice_states.VoiceStateTests.test_pipeline_state_tracks_activity_and_recovers_after_error)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_voice_states.py", line 23, in setUp
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+======================================================================
+ERROR: test_speaking_begins_only_after_playback_starts 
+(test_voice_states.VoiceStateTests.test_speaking_begins_only_after_playback_starts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\tests\test_voice_states.py", line 23, in setUp
+LEWIS CORE INITIALIZING
+LEWIS CORE INITIALIZING
+    from ui import server
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 181, in <module>
+    hud_settings = load_hud_settings()
+  File "C:\Users\Queen Sieanne Calix\Desktop\PROJECT-ATLAS\L.E.W.I.S.-Core\ui\server.py", line 172, in load_hud_settings
+    settings["tts_voice_id"] = stored["tts_voice_id"]
+                               ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'tts_voice_id'
+
+----------------------------------------------------------------------
+Ran 139 tests in 12.716s
+
+FAILED (errors=21)

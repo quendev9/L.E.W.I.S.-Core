@@ -29,7 +29,6 @@ const voiceToggle = document.getElementById("voiceToggle");
 const stopSpeakingButton = document.getElementById("stopSpeakingButton");
 const conversationState = document.querySelector(".conversation-state");
 const toggleFocusModeButton = document.getElementById("toggleFocusMode");
-const toggleThemeButton = document.getElementById("toggleTheme");
 const toggleLeftPanelButton = document.getElementById("toggleLeftPanel");
 const toggleRightPanelButton = document.getElementById("toggleRightPanel");
 const toggleSidePanelsButton = document.getElementById("toggleSidePanels");
@@ -103,6 +102,7 @@ let workspaceRequestId = 0;
 let workspaceSearchTimer = null;
 let activeWorkspaceName = null;
 let workspaceReturnFocus = null;
+let settingsLoadRequestId = 0;
 let focusModePanelState = hud?.classList.contains("focus-mode")
     ? {
         leftCollapsed: hud.classList.contains("left-panel-collapsed"),
@@ -110,6 +110,7 @@ let focusModePanelState = hud?.classList.contains("focus-mode")
     }
     : null;
 const HUD_PREFERENCES_KEY = "lewis-hud-preferences";
+const HUD_MODE_KEY = "lewis-hud-mode";
 let hudPreferences = {
     orbMotion: true,
     soundPreviewEnabled: false,
@@ -451,6 +452,7 @@ function setOrbState(state) {
         : "idle";
 
     coreOrb.dataset.state = activeState;
+    coreOrb.style.setProperty("--orb-status", ORB_STATE_LABELS[activeState] || "STANDBY");
     updateAdaptiveHudContext();
 
     const label = document.getElementById("orbStatusLabel");
@@ -1747,9 +1749,9 @@ async function loadProjectsWorkspace(searchTerm = "", projectName = "") {
     }
 }
 
-function renderModelsWorkspace(data) {
+function renderModelsWorkspace(data, target = workspaceContent) {
     const models = Array.isArray(data.ai_models) ? data.ai_models : [];
-    workspaceContent.replaceChildren();
+    target.replaceChildren();
     const panel = createWorkspaceElement("section", "workspace-model-panel");
     panel.appendChild(createWorkspaceElement(
         "h3",
@@ -1759,7 +1761,7 @@ function renderModelsWorkspace(data) {
     panel.appendChild(createWorkspaceElement(
         "p",
         "workspace-note",
-        `${data.ai || "Provider status unavailable"} · Selection applies to new requests and is held in memory until the server restarts.`
+        `${data.ai || "Provider status unavailable"} · Selection applies to new requests and is saved by LEWIS Core.`
     ));
 
     if (!models.length) {
@@ -1768,7 +1770,7 @@ function renderModelsWorkspace(data) {
             "workspace-empty",
             "No providers are currently configured. Configure credentials in the server environment; keys are not handled or displayed in this HUD."
         ));
-        workspaceContent.appendChild(panel);
+        target.appendChild(panel);
         return;
     }
 
@@ -1868,99 +1870,140 @@ function renderModelsWorkspace(data) {
             syncSelection();
         }
     });
-    workspaceContent.appendChild(panel);
-    workspaceContent.appendChild(createWorkspaceElement(
+    target.appendChild(panel);
+    target.appendChild(createWorkspaceElement(
         "p",
         "workspace-note",
         "The connection test sends a fixed short prompt to your selected provider and may count toward its usage or billing. API-key editing, usage monitoring, automatic routing, and local-model configuration are not available."
     ));
 }
 
-function renderSettingsWorkspace() {
-    const cards = [
-        {
-            title: "Appearance",
-            description: "Switch between the saved Soft Platinum and Graphite themes.",
-            action: "theme",
-            label: "SWITCH THEME"
-        },
-        {
-            title: "Voice & Audio",
-            description: "Open the existing microphone and voice-output controls.",
-            action: "voice",
-            label: "OPEN VOICE CONTROLS"
-        },
-        {
-            title: "AI & Providers",
-            description: "Choose an available provider/model. Selection is runtime-only.",
-            action: "models",
-            label: "OPEN AI MODELS"
-        },
-        {
-            title: "Memory & Privacy",
-            description: "Inspect and edit saved memory. Deletion is intentionally unavailable.",
-            action: "memory",
-            label: "VIEW MEMORY"
-        },
-        {
-            title: "System",
-            description: "Live system telemetry is available in the HUD overview. No additional system settings are exposed.",
-            action: null,
-            label: "NOT CONFIGURABLE"
-        },
-        {
-            title: "Personalization",
-            description: "No additional personalization settings are currently backed by configuration.",
-            action: null,
-            label: "NOT CONFIGURED"
-        },
-        {
-            title: "Hardware",
-            description: "ATLAS hardware integration is future work; no devices are claimed as connected.",
-            action: null,
-            label: "FUTURE INTEGRATION"
-        }
-    ];
-    workspaceContent.replaceChildren();
-    const grid = createWorkspaceElement("div", "workspace-settings-grid");
-    cards.forEach((card) => {
-        const section = createWorkspaceElement("section", "workspace-settings-card");
-        section.appendChild(createWorkspaceElement("h3", "", card.title));
-        section.appendChild(createWorkspaceElement("p", "", card.description));
-        const button = createWorkspaceElement(
-            "button",
-            "workspace-button",
-            card.label
-        );
-        button.type = "button";
-        if (card.action) {
-            button.dataset.settingsAction = card.action;
-        } else {
-            button.disabled = true;
-        }
-        section.appendChild(button);
-        grid.appendChild(section);
-    });
-    workspaceContent.appendChild(grid);
+async function renderSettingsWorkspace() {
+    const requestId = ++settingsLoadRequestId;
+    setWorkspaceStatus("Loading current LEWIS settings...");
 
-    const preferencePanel = createWorkspaceElement(
-        "section",
-        "workspace-settings-preferences"
+    let data;
+    try {
+        data = await apiRequest("/api/hud/settings");
+    } catch (error) {
+        console.error("LEWIS SETTINGS LOAD ERROR:", error);
+        setWorkspaceStatus(`Could not load current settings: ${error.message}`, true);
+        return;
+    }
+
+    if (
+        requestId !== settingsLoadRequestId ||
+        activeWorkspaceName !== "settings"
+    ) {
+        return;
+    }
+
+    voiceEnabled = Boolean(data && data.settings && data.settings.voice_enabled);
+
+    workspaceContent.replaceChildren();
+    const createCategory = (title, description = "") => {
+        const category = createWorkspaceElement(
+            "section",
+            "workspace-settings-category"
+        );
+        category.appendChild(createWorkspaceElement("h3", "", title));
+        if (description) {
+            category.appendChild(createWorkspaceElement(
+                "p",
+                "workspace-note",
+                description
+            ));
+        }
+        workspaceContent.appendChild(category);
+        return category;
+    };
+    const addUnsupported = (category, label, explanation) => {
+        const note = createWorkspaceElement(
+            "p",
+            "workspace-unsupported",
+            `${label}: Not implemented — ${explanation}`
+        );
+        category.appendChild(note);
+    };
+    const addSettingStatus = (category, id) => {
+        const status = createWorkspaceElement("p", "workspace-setting-status");
+        status.id = id;
+        status.setAttribute("role", "status");
+        category.appendChild(status);
+        return status;
+    };
+
+    const general = createCategory(
+        "General",
+        "Preferences for how this HUD opens and behaves in this browser."
     );
-    preferencePanel.innerHTML = `
-        <h3>Display and sound preferences</h3>
-        <p class="workspace-note">These preferences are saved in this browser. Sound is opt-in and limited to an on-demand preview; no sound plays during voice output.</p>
+    addUnsupported(
+        general,
+        "Startup behavior",
+        "The LEWIS launcher does not expose a startup preference."
+    );
+
+    const modeLabel = createWorkspaceElement(
+        "label",
+        "workspace-preference-field",
+        "DEFAULT HUD MODE"
+    );
+    const modeSelect = createWorkspaceElement("select");
+    modeSelect.id = "defaultHudModeSelect";
+    modeSelect.setAttribute("aria-label", "Default HUD mode");
+    [
+        ["focus", "Focus Mode"],
+        ["full", "Full HUD"]
+    ].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        modeSelect.appendChild(option);
+    });
+    modeSelect.value = hud?.classList.contains("focus-mode") ? "focus" : "full";
+    modeLabel.appendChild(modeSelect);
+    general.appendChild(modeLabel);
+    const modeStatus = addSettingStatus(general, "hudModePreferenceStatus");
+    modeSelect.addEventListener("change", () => {
+        const saved = setFocusMode(modeSelect.value === "focus", true);
+        modeStatus.textContent = saved
+            ? `Default mode saved as ${modeSelect.value === "focus" ? "Focus Mode" : "Full HUD"}.`
+            : "Mode changed, but the browser could not save this preference.";
+        modeStatus.dataset.state = saved ? "normal" : "error";
+    });
+    general.appendChild(createWorkspaceElement(
+        "p",
+        "workspace-note",
+        "The default HUD mode is stored in this browser. Other launcher startup options are not available."
+    ));
+
+    const appearance = createCategory(
+        "Appearance",
+        "The Graphite / Soft Platinum dark interface is fixed. Existing orb and sound preferences are stored in this browser."
+    );
+    addUnsupported(
+        appearance,
+        "Interface density",
+        "Compact and spacious density modes are not implemented."
+    );
+
+    const appearanceControls = createWorkspaceElement(
+        "div",
+        "workspace-settings-controls"
+    );
+    appearanceControls.innerHTML = `
+        <h4>Orb and sound preferences</h4>
         <label class="workspace-preference-row">
             <input id="orbMotionPreference" type="checkbox">
             <span>Enable orb animation</span>
         </label>
         <label class="workspace-preference-row">
             <input id="soundPreviewPreference" type="checkbox">
-            <span>Enable sound preview</span>
+            <span>Enable on-demand sound preview</span>
         </label>
         <label class="workspace-preference-row">
             <input id="soundMutePreference" type="checkbox">
-            <span>Mute all HUD sound previews</span>
+            <span>Mute HUD sound previews</span>
         </label>
         <label class="workspace-preference-field">
             <span>SOUND PROFILE</span>
@@ -1974,34 +2017,76 @@ function renderSettingsWorkspace() {
             <input id="soundVolumePreference" type="range" min="0" max="100" step="1">
         </label>
         <button id="previewInterfaceSoundButton" class="workspace-button" type="button">PREVIEW SOUND</button>
-        <p id="soundPreferenceStatus" class="workspace-note" role="status"></p>
+        <p id="soundPreferenceStatus" class="workspace-setting-status" role="status"></p>
     `;
-    workspaceContent.appendChild(preferencePanel);
+    appearance.appendChild(appearanceControls);
 
-    const orbMotionInput = preferencePanel.querySelector("#orbMotionPreference");
+    const orbMotionInput =
+        appearanceControls.querySelector("#orbMotionPreference");
     const soundEnabledInput =
-        preferencePanel.querySelector("#soundPreviewPreference");
-    const mutedInput = preferencePanel.querySelector("#soundMutePreference");
-    const profileInput = preferencePanel.querySelector("#soundProfilePreference");
-    const volumeInput = preferencePanel.querySelector("#soundVolumePreference");
-    const volumeValue = preferencePanel.querySelector("#soundVolumeValue");
+        appearanceControls.querySelector("#soundPreviewPreference");
+    const mutedInput = appearanceControls.querySelector("#soundMutePreference");
+    const profileInput =
+        appearanceControls.querySelector("#soundProfilePreference");
+    const volumeInput =
+        appearanceControls.querySelector("#soundVolumePreference");
+    const volumeValue = appearanceControls.querySelector("#soundVolumeValue");
     const previewButton =
-        preferencePanel.querySelector("#previewInterfaceSoundButton");
+        appearanceControls.querySelector("#previewInterfaceSoundButton");
     const preferenceStatus =
-        preferencePanel.querySelector("#soundPreferenceStatus");
+        appearanceControls.querySelector("#soundPreferenceStatus");
 
-    orbMotionInput.checked = hudPreferences.orbMotion;
-    soundEnabledInput.checked = hudPreferences.soundPreviewEnabled;
-    mutedInput.checked = hudPreferences.soundMuted;
-    profileInput.value = hudPreferences.soundProfile;
-    volumeInput.value = String(hudPreferences.soundVolume);
-    volumeValue.textContent = `${hudPreferences.soundVolume}%`;
+    const getSoundPref = (key, settingsObj, fallback) => {
+        if (settingsObj && settingsObj[key] !== undefined) {
+            return settingsObj[key];
+        }
+        return fallback;
+    };
+    const getBoolSoundPref = (key, settingsObj, fallback) => {
+        if (settingsObj && settingsObj[key] !== undefined) {
+            return Boolean(settingsObj[key]);
+        }
+        return fallback;
+    };
+    const applySoundPrefs = () => {
+        const settings = data && data.settings ? data.settings : {};
+        orbMotionInput.checked = getBoolSoundPref("orb_motion", settings, hudPreferences.orbMotion);
+        soundEnabledInput.checked = getBoolSoundPref("sound_preview_enabled", settings, hudPreferences.soundPreviewEnabled);
+        mutedInput.checked = getBoolSoundPref("sound_muted", settings, hudPreferences.soundMuted);
+        profileInput.value = getSoundPref("sound_profile", settings, hudPreferences.soundProfile) || "soft";
+        const volume = getSoundPref("sound_volume", settings, hudPreferences.soundVolume);
+        volumeInput.value = String(typeof volume === "number" ? volume : 50);
+        volumeValue.textContent = `${typeof volume === "number" ? volume : 50}%`;
+    };
 
-    const saveAndApplyPreferences = () => {
-        saveHudPreferences();
+    applySoundPrefs();
+
+    const saveAndApplyPreferences = async () => {
+        const saved = saveHudPreferences();
         applyHudPreferences();
         previewButton.disabled =
             !hudPreferences.soundPreviewEnabled || hudPreferences.soundMuted;
+        preferenceStatus.textContent = saved
+            ? "Appearance preferences saved in this browser."
+            : "Could not save appearance preferences in this browser.";
+        preferenceStatus.dataset.state = saved ? "normal" : "error";
+        try {
+            await apiRequest("/api/hud/settings", {
+                method: "POST",
+                body: JSON.stringify({
+                    sound_preview_enabled: hudPreferences.soundPreviewEnabled,
+                    sound_muted: hudPreferences.soundMuted,
+                    sound_profile: hudPreferences.soundProfile,
+                    sound_volume: hudPreferences.soundVolume,
+                    orb_motion: hudPreferences.orbMotion
+                })
+            });
+        } catch (error) {
+            console.error("LEWIS HUD SOUND PREFERENCE SAVE ERROR:", error);
+            preferenceStatus.textContent =
+                "Sound preferences not saved to server.";
+            preferenceStatus.dataset.state = "error";
+        }
     };
     orbMotionInput.addEventListener("change", () => {
         hudPreferences.orbMotion = orbMotionInput.checked;
@@ -2022,7 +2107,7 @@ function renderSettingsWorkspace() {
     volumeInput.addEventListener("input", () => {
         hudPreferences.soundVolume = Number(volumeInput.value);
         volumeValue.textContent = `${hudPreferences.soundVolume}%`;
-        saveHudPreferences();
+        saveAndApplyPreferences();
     });
     previewButton.disabled =
         !hudPreferences.soundPreviewEnabled || hudPreferences.soundMuted;
@@ -2037,20 +2122,350 @@ function renderSettingsWorkspace() {
             console.error("LEWIS HUD SOUND PREVIEW ERROR:", error);
             preferenceStatus.textContent =
                 `Could not play preview: ${error.message}`;
+            preferenceStatus.dataset.state = "error";
         }
     });
 
-    const futureIntegrations = createWorkspaceElement(
-        "section",
-        "workspace-settings-preferences"
+    const voice = createCategory(
+        "Voice",
+        "Speech input and output controls currently available in LEWIS Core."
     );
-    futureIntegrations.innerHTML = `
-        <h3>Hardware and permission-based autonomy</h3>
-        <p class="workspace-note">AXIS, DUM-E, and other hardware have no discovery or authorization API in this build. Their connection state is not known and no device is represented as connected.</p>
-        <p class="workspace-note">Permission requests, background workflow execution, verification, and task history require a dedicated authorized backend. No autonomous execution controls are available.</p>
-        <p class="workspace-note">The future lifecycle remains: Understand → Plan → Request Permission → Execute → Verify → Report. Execution is not enabled by this informational display.</p>
-    `;
-    workspaceContent.appendChild(futureIntegrations);
+    const voiceControls = createWorkspaceElement(
+        "div",
+        "workspace-settings-controls"
+    );
+    const inputState = data && data.settings && data.settings.voice_available ? "Available" : "Unavailable";
+    const outputState = data && data.settings && data.settings.voice_output_available ? "Available" : "Unavailable";
+    voiceControls.appendChild(createWorkspaceElement(
+        "p",
+        "workspace-note",
+        `Speech input: ${inputState} · Speech output: ${outputState}`
+    ));
+    const voiceOutputLabel = createWorkspaceElement(
+        "label",
+        "workspace-preference-row"
+    );
+    const voiceOutputInput = document.createElement("input");
+    voiceOutputInput.id = "voiceOutputPreference";
+    voiceOutputInput.type = "checkbox";
+    voiceOutputInput.checked = voiceEnabled;
+    voiceOutputInput.disabled = !data || !data.settings || !data.settings.voice_output_available;
+    voiceOutputLabel.append(
+        voiceOutputInput,
+        createWorkspaceElement("span", "", "Enable spoken responses")
+    );
+    voiceControls.appendChild(voiceOutputLabel);
+    const voiceStatus = createWorkspaceElement(
+        "p",
+        "workspace-setting-status"
+    );
+    voiceStatus.id = "voicePreferenceStatus";
+    voiceStatus.setAttribute("role", "status");
+    voiceControls.appendChild(voiceStatus);
+
+    // TTS engine configuration.
+    const ttsSettings = data && data.settings ? data.settings : {};
+    const ttsControls = createWorkspaceElement("div", "workspace-settings-controls");
+    ttsControls.appendChild(createWorkspaceElement(
+        "h4",
+        "",
+        "Text-to-speech output"
+    ));
+    const ttsNote = createWorkspaceElement("p", "workspace-note",
+        "Configure the local TTS engine, voice, language, and speaking speed used for spoken responses."
+    );
+    ttsControls.appendChild(ttsNote);
+
+    // TTS engine.
+    const ttsEngineRow = createWorkspaceElement("label", "workspace-preference-row");
+    const ttsEngineInput = document.createElement("select");
+    ttsEngineInput.id = "ttsEngineSelect";
+    ttsEngineInput.name = "tts_engine";
+    const ttsEngineOptions = [
+        ["pyttsx3", "System voice (pyttsx3)"],
+        ["kokoro", "Kokoro TTS (local)"],
+    ];
+    ttsEngineOptions.forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        option.selected = ttsSettings.tts_engine === value;
+        ttsEngineInput.appendChild(option);
+    });
+    ttsEngineRow.append(
+        createWorkspaceElement("span", "", "TTS engine"),
+        ttsEngineInput
+    );
+    ttsControls.appendChild(ttsEngineRow);
+
+    // Voice ID.
+    const ttsVoiceRow = createWorkspaceElement("label", "workspace-preference-row");
+    const ttsVoiceInput = document.createElement("input");
+    ttsVoiceInput.id = "ttsVoiceInput";
+    ttsVoiceInput.type = "text";
+    ttsVoiceInput.value = ttsSettings.tts_voice_id || "";
+    ttsVoiceInput.placeholder = "e.g. bm_lewis";
+    ttsVoiceRow.append(
+        createWorkspaceElement("span", "", "Voice ID"),
+        ttsVoiceInput
+    );
+    ttsControls.appendChild(ttsVoiceRow);
+
+    // Language.
+    const ttsLangRow = createWorkspaceElement("label", "workspace-preference-row");
+    const ttsLangInput = document.createElement("input");
+    ttsLangInput.id = "ttsLanguageInput";
+    ttsLangInput.type = "text";
+    ttsLangInput.value = ttsSettings.tts_language || "en-gb";
+    ttsLangInput.placeholder = "e.g. en-gb";
+    ttsLangRow.append(
+        createWorkspaceElement("span", "", "Language"),
+        ttsLangInput
+    );
+    ttsControls.appendChild(ttsLangRow);
+
+    // Speaking speed.
+    const ttsSpeedRow = createWorkspaceElement("label", "workspace-preference-row");
+    const ttsSpeedInput = document.createElement("input");
+    ttsSpeedInput.id = "ttsSpeedInput";
+    ttsSpeedInput.type = "range";
+    ttsSpeedInput.min = "0.1";
+    ttsSpeedInput.max = "4.0";
+    ttsSpeedInput.step = "0.05";
+    ttsSpeedInput.value = String(ttsSettings.tts_speed || 1.10);
+    const ttsSpeedValue = createWorkspaceElement("span", "", `${Number(ttsSettings.tts_speed || 1.10).toFixed(2)}×`);
+    ttsSpeedInput.addEventListener("input", () => {
+        ttsSpeedValue.textContent = `${Number(ttsSpeedInput.value).toFixed(2)}×`;
+    });
+    ttsSpeedRow.append(
+        createWorkspaceElement("span", "", "Speaking speed"),
+        ttsSpeedInput,
+        ttsSpeedValue
+    );
+    ttsControls.appendChild(ttsSpeedRow);
+
+    const ttsStatus = createWorkspaceElement("p", "workspace-setting-status");
+    ttsStatus.id = "ttsPreferenceStatus";
+    ttsStatus.setAttribute("role", "status");
+    ttsControls.appendChild(ttsStatus);
+
+    const saveTtsButton = createWorkspaceElement("button", "workspace-button", "SAVE TTS SETTINGS");
+    saveTtsButton.type = "button";
+    saveTtsButton.addEventListener("click", async () => {
+        const updates = {
+            tts_engine: ttsEngineInput.value,
+            tts_voice_id: ttsVoiceInput.value.trim() || null,
+            tts_language: ttsLangInput.value.trim() || "en-gb",
+            tts_speed: Number(ttsSpeedInput.value),
+        };
+        saveTtsButton.disabled = true;
+        ttsStatus.textContent = "Saving TTS settings...";
+        try {
+            const result = await apiRequest("/api/hud/settings", {
+                method: "POST",
+                body: JSON.stringify(updates),
+            });
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            ttsStatus.textContent = "TTS settings saved.";
+            ttsStatus.dataset.state = "normal";
+        } catch (error) {
+            console.error("LEWIS TTS SETTINGS ERROR:", error);
+            ttsStatus.textContent = `Could not save TTS settings: ${error.message}`;
+            ttsStatus.dataset.state = "error";
+        } finally {
+            saveTtsButton.disabled = false;
+        }
+    });
+    ttsControls.appendChild(saveTtsButton);
+
+    voiceControls.appendChild(ttsControls);
+
+    const openVoiceControls = createWorkspaceElement(
+        "button",
+        "workspace-button",
+        "OPEN SPEECH INPUT CONTROLS"
+    );
+    openVoiceControls.type = "button";
+    openVoiceControls.dataset.settingsAction = "voice";
+    voiceControls.appendChild(openVoiceControls);
+    voice.appendChild(voiceControls);
+    voiceOutputInput.addEventListener("change", async () => {
+        const desired = voiceOutputInput.checked;
+        voiceOutputInput.disabled = true;
+        voiceStatus.textContent = "Saving voice output preference...";
+        try {
+            const result = await apiRequest("/api/voice/settings", {
+                method: "POST",
+                body: JSON.stringify({ enabled: desired })
+            });
+            if (result.voice_enabled !== desired) {
+                throw new Error("The server did not confirm the voice preference.");
+            }
+            voiceEnabled = desired;
+            voiceStatus.textContent = "Voice output preference saved.";
+            voiceStatus.dataset.state = "normal";
+        } catch (error) {
+            console.error("LEWIS VOICE SETTINGS ERROR:", error);
+            voiceOutputInput.checked = voiceEnabled;
+            voiceStatus.textContent =
+                `Could not save voice output preference: ${error.message}`;
+            voiceStatus.dataset.state = "error";
+        } finally {
+            voiceOutputInput.disabled = !data || !data.settings || !data.settings.voice_output_available;
+        }
+    });
+
+    const ai = createCategory(
+        "AI & Models",
+        "Select a configured provider and model for new requests."
+    );
+    const modelControls = createWorkspaceElement("div", "workspace-model-settings");
+    ai.appendChild(modelControls);
+
+    let combinedData = { ...data.settings, ai_models: [], ai_provider: null, ai_model: null };
+    try {
+        const status = await apiRequest("/api/status");
+        if (requestId !== settingsLoadRequestId) return;
+        combinedData = {
+            ...combinedData,
+            ai_models: Array.isArray(status.ai_models) ? status.ai_models : [],
+            ai_provider: status.ai_provider || null,
+            ai_model: status.ai_model || null,
+        };
+    } catch (error) {
+        console.error("LEWIS AI MODELS LOAD ERROR:", error);
+    }
+
+    renderModelsWorkspace(combinedData, modelControls);
+
+    const memory = createCategory(
+        "Memory",
+        "Memory is stored by LEWIS Core and remains separate from conversation history."
+    );
+    memory.appendChild(createWorkspaceElement(
+        "p",
+        "workspace-note",
+        typeof data.memory_count === "number"
+            ? `${data.memory_count} stored memory records.`
+            : "Memory status is unavailable."
+    ));
+    const openMemory = createWorkspaceElement(
+        "button",
+        "workspace-button",
+        "OPEN MEMORY"
+    );
+    openMemory.type = "button";
+    openMemory.dataset.settingsAction = "memory";
+    memory.appendChild(openMemory);
+    memory.appendChild(createWorkspaceElement(
+        "p",
+        "workspace-note",
+        "Search and edit stored records in the Memory workspace. Memory deletion is not available."
+    ));
+    addUnsupported(
+        memory,
+        "Memory behavior preferences",
+        "Memory capture and retrieval behavior is not configurable from the HUD."
+    );
+
+    const system = createCategory(
+        "System",
+        "Live diagnostics and system information reported by the running LEWIS server."
+    );
+    const systemInfo = createWorkspaceElement("dl", "workspace-system-info");
+    const systemRows = [
+        ["Core", data.core || "Unavailable"],
+        ["AI provider", `${data.ai_provider || "Unavailable"} · ${data.ai_model || "No model"}`],
+        ["Memory", `${data.memory || "Unavailable"} · ${typeof data.memory_count === "number" ? data.memory_count : "unknown"} records`],
+        ["Voice", `Input ${data.voice_available ? "available" : "unavailable"} · Output ${data.voice_output_available ? "available" : "unavailable"}`],
+        ["CPU", Number.isFinite(Number(data.system?.cpu)) ? `${Number(data.system.cpu).toFixed(1)}%` : "Unavailable"],
+        ["RAM", Number.isFinite(Number(data.system?.ram)) ? `${Number(data.system.ram).toFixed(1)}%` : "Unavailable"],
+        ["Server uptime", formatUptime(data.uptime)]
+    ];
+    systemRows.forEach(([label, value]) => {
+        systemInfo.append(
+            createWorkspaceElement("dt", "", label),
+            createWorkspaceElement("dd", "", value)
+        );
+    });
+    system.appendChild(systemInfo);
+    addUnsupported(
+        system,
+        "Permissions",
+        "The server does not expose a permissions or authorization-management API."
+    );
+
+    const diagnostics = createWorkspaceElement(
+        "section",
+        "workspace-settings-controls"
+    );
+    diagnostics.appendChild(createWorkspaceElement("h4", "", "Recent diagnostics"));
+    const diagnosticList = createWorkspaceElement(
+        "div",
+        "workspace-diagnostics"
+    );
+    diagnosticList.setAttribute("aria-live", "polite");
+    diagnosticList.appendChild(createWorkspaceElement(
+        "p",
+        "workspace-note",
+        "Loading system events..."
+    ));
+    diagnostics.appendChild(diagnosticList);
+    system.appendChild(diagnostics);
+    setWorkspaceStatus();
+
+    try {
+        const logs = await apiRequest("/api/logs");
+        if (
+            requestId !== settingsLoadRequestId ||
+            activeWorkspaceName !== "settings"
+        ) {
+            return;
+        }
+        if (!Array.isArray(logs.logs)) {
+            throw new Error("The server returned invalid system events.");
+        }
+        diagnosticList.replaceChildren();
+        const recent = logs.logs.slice(-10).reverse();
+        if (!recent.length) {
+            diagnosticList.appendChild(createWorkspaceElement(
+                "p",
+                "workspace-note",
+                "No system events have been reported in this server session."
+            ));
+        } else {
+            recent.forEach((entry) => {
+                const row = createWorkspaceElement(
+                    "div",
+                    "workspace-diagnostic-entry"
+                );
+                row.append(
+                    createWorkspaceElement(
+                        "time",
+                        "",
+                        entry.time || "Time unavailable"
+                    ),
+                    createWorkspaceElement(
+                        "span",
+                        "",
+                        entry.message || "System event"
+                    )
+                );
+                diagnosticList.appendChild(row);
+            });
+        }
+    } catch (error) {
+        console.error("LEWIS SETTINGS DIAGNOSTICS ERROR:", error);
+        const errorMessage = createWorkspaceElement(
+            "p",
+            "workspace-setting-status",
+            `Could not load diagnostics: ${error.message}`
+        );
+        errorMessage.dataset.state = "error";
+        diagnosticList.replaceChildren(errorMessage);
+    }
 }
 
 async function openWorkspace(name, navigationLink) {
@@ -2060,7 +2475,10 @@ async function openWorkspace(name, navigationLink) {
     workspaceRequestId += 1;
     window.clearTimeout(workspaceSearchTimer);
     workspaceReturnFocus = navigationLink || document.activeElement;
-    setActiveNavigation(navigationLink);
+    const activeNavigationLink = navigationLink?.classList.contains("nav-item")
+        ? navigationLink
+        : document.querySelector(`.nav-item[data-workspace="${name}"]`);
+    setActiveNavigation(activeNavigationLink);
     workspaceView.hidden = false;
     workspaceView.setAttribute("aria-hidden", "false");
     workspaceView.removeAttribute("inert");
@@ -2069,7 +2487,7 @@ async function openWorkspace(name, navigationLink) {
         memory: ["MEMORY", "Browse, search, and edit memories stored by LEWIS Core."],
         projects: ["PROJECTS", "Review saved project facts and linked conversations from LEWIS Core."],
         models: ["AI MODELS", "Select an available provider and model for new requests."],
-        settings: ["SETTINGS", "Manage the appearance, voice, and provider settings currently supported."]
+        settings: ["SETTINGS", "Manage supported preferences and review unavailable settings."]
     };
     const [title, description] = descriptions[name] || ["WORKSPACE", ""];
     workspaceTitle.textContent = title;
@@ -2102,7 +2520,7 @@ async function openWorkspace(name, navigationLink) {
             setWorkspaceStatus(`Could not load provider status: ${error.message}`, true);
         }
     } else if (name === "settings") {
-        renderSettingsWorkspace();
+        await renderSettingsWorkspace();
     }
 }
 
@@ -2127,9 +2545,7 @@ workspaceContent?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-settings-action]");
     if (!button) return;
     const action = button.dataset.settingsAction;
-    if (action === "theme") {
-        toggleThemeButton?.click();
-    } else if (action === "voice") {
+    if (action === "voice") {
         closeWorkspaceView();
         const voiceSettings = document.getElementById("voiceSettings");
         if (voiceSettings) {
@@ -2377,7 +2793,7 @@ voiceSessionToggleButtons.forEach((button) => {
     });
 });
 
-document.querySelectorAll(".nav-item").forEach((link) => {
+document.querySelectorAll(".nav-item, .focus-settings-button").forEach((link) => {
     link.addEventListener("click", (event) => {
         if (link.getAttribute("aria-disabled") === "true" || link.disabled) {
             event.preventDefault();
@@ -3507,10 +3923,10 @@ function syncPanelButtons() {
     updateAdaptiveHudContext();
 }
 
-function setFocusMode(enabled) {
+function setFocusMode(enabled, keepWorkspaceOpen = false) {
     if (!hud) return;
 
-    closeWorkspaceView();
+    if (!keepWorkspaceOpen) closeWorkspaceView();
     closeConversationDrawer();
 
     if (enabled && !hud.classList.contains("focus-mode")) {
@@ -3540,30 +3956,13 @@ function setFocusMode(enabled) {
         toggleFocusModeButton.textContent = enabled ? "FULL" : "FOCUS";
     }
     syncPanelButtons();
-}
 
-function applyTheme(theme) {
-    const selectedTheme = theme === "dark" ? "dark" : "light";
-    const nextTheme = selectedTheme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = selectedTheme;
-    document.documentElement.style.colorScheme = selectedTheme;
-
-    const themeColor = document.querySelector('meta[name="theme-color"]');
-    if (themeColor) {
-        themeColor.content = selectedTheme === "dark" ? "#17191C" : "#F5F6F7";
-    }
-
-    if (toggleThemeButton) {
-        toggleThemeButton.textContent = nextTheme.toUpperCase();
-        toggleThemeButton.setAttribute(
-            "aria-label",
-            `Switch to ${nextTheme} theme`
-        );
-        toggleThemeButton.setAttribute(
-            "aria-pressed",
-            String(selectedTheme === "dark")
-        );
-        toggleThemeButton.title = `Switch to ${nextTheme} theme`;
+    try {
+        window.localStorage.setItem(HUD_MODE_KEY, enabled ? "focus" : "full");
+        return true;
+    } catch (error) {
+        console.warn("LEWIS HUD MODE SAVE ERROR:", error);
+        return false;
     }
 }
 
@@ -3607,8 +4006,10 @@ function saveHudPreferences() {
             HUD_PREFERENCES_KEY,
             JSON.stringify(hudPreferences)
         );
+        return true;
     } catch (error) {
         console.warn("LEWIS HUD PREFERENCE SAVE ERROR:", error);
+        return false;
     }
 }
 
@@ -3658,37 +4059,19 @@ async function playInterfaceSoundPreview() {
     return true;
 }
 
-function initializeTheme() {
-    let theme = "light";
-
+function initializeHudMode() {
     try {
-        const savedTheme = window.localStorage.getItem("lewis-hud-theme");
-        if (savedTheme === "light" || savedTheme === "dark") {
-            theme = savedTheme;
+        const savedMode = window.localStorage.getItem(HUD_MODE_KEY);
+        if (savedMode === "focus" || savedMode === "full") {
+            setFocusMode(savedMode === "focus");
         }
     } catch (error) {
-        console.warn("LEWIS THEME PREFERENCE LOAD ERROR:", error);
+        console.warn("LEWIS HUD MODE LOAD ERROR:", error);
     }
-
-    applyTheme(theme);
 }
 
-if (toggleThemeButton) {
-    toggleThemeButton.addEventListener("click", () => {
-        const nextTheme =
-            document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-        applyTheme(nextTheme);
-
-        try {
-            window.localStorage.setItem("lewis-hud-theme", nextTheme);
-        } catch (error) {
-            console.warn("LEWIS THEME PREFERENCE SAVE ERROR:", error);
-        }
-    });
-}
-
-initializeTheme();
 initializeHudPreferences();
+initializeHudMode();
 
 if (hud && toggleLeftPanelButton) {
     toggleLeftPanelButton.addEventListener("click", () => {

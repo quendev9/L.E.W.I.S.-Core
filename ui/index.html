@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#F5F6F7">
+    <meta name="theme-color" content="#17191C">
     <title>LEWIS HUD</title>
     <link rel="icon" type="image/svg+xml" href="lewis-logo.svg">
     <link rel="stylesheet" href="style.css">
@@ -76,18 +76,18 @@
 
             <nav class="panel-controls" aria-label="Panel visibility">
                 <button
+                    class="focus-settings-button"
+                    type="button"
+                    data-workspace="settings"
+                    aria-label="Open settings"
+                >SETTINGS</button>
+
+                <button
                     id="toggleFocusMode"
                     type="button"
                     aria-pressed="true"
                     aria-label="Toggle focus mode"
                 >FULL</button>
-
-                <button
-                    id="toggleTheme"
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="Switch to dark theme"
-                >DARK</button>
 
                 <button
                     id="toggleLeftPanel"
@@ -175,7 +175,7 @@
                         <span class="nav-icon" aria-hidden="true">⚙</span>
                         <span>
                             <strong>Settings</strong>
-                            <small>Voice preferences</small>
+                            <small>Application preferences</small>
                         </span>
                     </a>
                 </nav>
@@ -201,7 +201,7 @@
                         </p>
                     </div>
 
-                    <div class="orb-wrap orb-status-group">
+                    <div class="orb-wrap">
                         <div
                             class="orb"
                             id="coreOrb"
@@ -293,9 +293,8 @@
                                 <path class="sphere-highlight" d="M91 173C111 105 170 64 233 62"></path>
                                 <path class="sphere-reflection" d="M80 236c8 48 35 84 76 105"></path>
                             </svg>
-                        </div>
-
                         <span class="orb-caption" id="orbStatusLabel">STANDBY</span>
+                        </div>
                     </div>
 
                     <div class="hero-aside">

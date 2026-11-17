@@ -5,6 +5,7 @@ __pycache__/
 memory/memory.json
 memory/project_memory.json
 memory/conversations.json
+memory/hud_settings.json
 memory/*.bak
 models/
 test_fish_voice.py

@@ -61,6 +61,26 @@ class HUDWorkspaceAPITests(unittest.TestCase):
 
         from ui import server
 
+        self.server_module = server
+        self.previous_hud_settings = dict(server.hud_settings)
+        self.previous_voice_enabled = server.get_state_snapshot()[
+            "voice_enabled"
+        ]
+        self.settings_path_patch = patch.object(
+            server,
+            "HUD_SETTINGS_FILE",
+            Path(self.temp_dir.name) / "hud_settings.json",
+        )
+        self.settings_path_patch.start()
+        self.addCleanup(self.settings_path_patch.stop)
+
+        def restore_hud_settings():
+            server.hud_settings.clear()
+            server.hud_settings.update(self.previous_hud_settings)
+            server.update_state(voice_enabled=self.previous_voice_enabled)
+
+        self.addCleanup(restore_hud_settings)
+
         self.httpd = ThreadingHTTPServer(
             ("127.0.0.1", 0),
             server.LewisHandler,
@@ -240,6 +260,50 @@ class HUDWorkspaceAPITests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["provider"], "groq")
         test_connection.assert_called_once_with()
+
+    def test_voice_output_preference_persists_to_server_settings(self):
+        status, payload = self._post(
+            "/api/voice/settings",
+            {"enabled": False},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["voice_enabled"])
+        self.assertFalse(self.server_module.get_state_snapshot()["voice_enabled"])
+        self.assertEqual(
+            self.server_module.load_hud_settings()["voice_enabled"],
+            False,
+        )
+
+    def test_ai_model_selection_persists_to_server_settings(self):
+        selection = {
+            "provider": "groq",
+            "model": "openai/gpt-oss-20b",
+        }
+        with (
+            patch.object(self.server_module, "AI_AVAILABLE", True),
+            patch.object(
+                self.server_module.ai.model,
+                "get_available_ai_models",
+                return_value=[{
+                    **selection,
+                    "name": "Groq",
+                }],
+            ),
+            patch.object(
+                self.server_module.ai.model,
+                "set_ai_selection",
+                return_value=selection,
+            ),
+        ):
+            status, payload = self._post("/api/ai/model", selection)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["selection"], selection)
+        self.assertEqual(
+            self.server_module.load_hud_settings()["ai_selection"],
+            selection,
+        )
 
     def test_workspace_search_rejects_oversized_query(self):
         status, payload = self._get(

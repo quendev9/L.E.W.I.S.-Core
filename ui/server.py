@@ -2,6 +2,7 @@ import json
 import os
 import queue
 import sys
+import tempfile
 import threading
 import time
 from urllib.parse import parse_qs, urlsplit
@@ -109,6 +110,141 @@ if LEWIS_AVAILABLE:
 # ---------------------------------------------------------
 
 START_TIME = time.time()
+HUD_SETTINGS_FILE = PROJECT_DIR / "memory" / "hud_settings.json"
+_hud_settings_lock = threading.Lock()
+
+
+def load_hud_settings():
+    settings = {
+        "voice_enabled": True,
+        "ai_selection": None,
+        "sound_preview_enabled": False,
+        "sound_muted": False,
+        "sound_profile": "soft",
+        "sound_volume": 50,
+        "orb_motion": True,
+        "tts_engine": "pyttsx3",
+        "tts_voice_id": None,
+        "tts_language": "en-gb",
+        "tts_speed": 1.10,
+    }
+
+    try:
+        with HUD_SETTINGS_FILE.open("r", encoding="utf-8") as settings_file:
+            stored = json.load(settings_file)
+    except FileNotFoundError:
+        return settings
+    except (OSError, ValueError) as error:
+        print("LEWIS HUD SETTINGS LOAD ERROR:", type(error).__name__)
+        return settings
+
+    if not isinstance(stored, dict):
+        print("LEWIS HUD SETTINGS LOAD ERROR: invalid settings format")
+        return settings
+
+    if isinstance(stored.get("voice_enabled"), bool):
+        settings["voice_enabled"] = stored["voice_enabled"]
+
+    selection = stored.get("ai_selection")
+    if (
+        isinstance(selection, dict)
+        and isinstance(selection.get("provider"), str)
+        and isinstance(selection.get("model"), str)
+    ):
+        settings["ai_selection"] = {
+            "provider": selection["provider"],
+            "model": selection["model"],
+        }
+
+    if isinstance(stored.get("sound_preview_enabled"), bool):
+        settings["sound_preview_enabled"] = stored["sound_preview_enabled"]
+    if isinstance(stored.get("sound_muted"), bool):
+        settings["sound_muted"] = stored["sound_muted"]
+    if isinstance(stored.get("sound_profile"), str) and stored.get("sound_profile") in ("soft", "clear"):
+        settings["sound_profile"] = stored["sound_profile"]
+    if isinstance(stored.get("sound_volume"), (int, float)):
+        settings["sound_volume"] = max(0, min(100, int(stored["sound_volume"])))
+    if isinstance(stored.get("orb_motion"), bool):
+        settings["orb_motion"] = stored["orb_motion"]
+    if isinstance(stored.get("tts_engine"), str) and stored.get("tts_engine") in ("pyttsx3", "kokoro"):
+        settings["tts_engine"] = stored["tts_engine"]
+    if isinstance(stored.get("tts_voice_id"), str) or stored.get("tts_voice_id") is None:
+        settings["tts_voice_id"] = stored.get("tts_voice_id")
+    if isinstance(stored.get("tts_language"), str) and stored.get("tts_language"):
+        settings["tts_language"] = stored["tts_language"]
+    if isinstance(stored.get("tts_speed"), (int, float)) and 0.1 <= float(stored["tts_speed"]) <= 4.0:
+        settings["tts_speed"] = float(stored["tts_speed"])
+
+    return settings
+
+
+hud_settings = load_hud_settings()
+
+
+def save_hud_settings(updates):
+    if not isinstance(updates, dict):
+        return
+    with _hud_settings_lock:
+        # Validate incoming values before merging.
+        validated = {}
+        for key, value in updates.items():
+            if key == "voice_enabled" and isinstance(value, bool):
+                validated[key] = value
+            elif key == "ai_selection" and isinstance(value, dict):
+                if (
+                    isinstance(value.get("provider"), str)
+                    and isinstance(value.get("model"), str)
+                ):
+                    validated[key] = {
+                        "provider": value["provider"],
+                        "model": value["model"],
+                    }
+            elif key == "sound_preview_enabled" and isinstance(value, bool):
+                validated[key] = value
+            elif key == "sound_muted" and isinstance(value, bool):
+                validated[key] = value
+            elif key == "sound_profile" and isinstance(value, str) and value in ("soft", "clear"):
+                validated[key] = value
+            elif key == "sound_volume" and isinstance(value, (int, float)):
+                validated[key] = max(0, min(100, int(value)))
+            elif key == "orb_motion" and isinstance(value, bool):
+                validated[key] = value
+            elif key == "tts_engine" and isinstance(value, str) and value in ("pyttsx3", "kokoro"):
+                validated[key] = value
+            elif key == "tts_voice_id" and (isinstance(value, str) or value is None):
+                validated[key] = value
+            elif key == "tts_language" and isinstance(value, str) and value:
+                validated[key] = value
+            elif key == "tts_speed" and isinstance(value, (int, float)) and 0.1 <= float(value) <= 4.0:
+                validated[key] = float(value)
+        updated = {**hud_settings, **validated}
+        HUD_SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = None
+
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=HUD_SETTINGS_FILE.parent,
+                prefix=".hud_settings_",
+                suffix=".tmp",
+                delete=False,
+            ) as settings_file:
+                temporary_path = Path(settings_file.name)
+                json.dump(updated, settings_file, indent=2)
+                settings_file.write("\n")
+                settings_file.flush()
+                os.fsync(settings_file.fileno())
+
+            os.replace(temporary_path, HUD_SETTINGS_FILE)
+        finally:
+            if temporary_path is not None and temporary_path.exists():
+                temporary_path.unlink()
+
+        hud_settings.clear()
+        hud_settings.update(updated)
+
+    return dict(hud_settings)
 
 # Only one request may process a message through the shared
 # Lewis instance at a time.
@@ -163,7 +299,7 @@ def _request_voice_output_stop():
 server_state = {
     "activity": "READY",
     "voice_available": VOICE_INPUT_AVAILABLE,
-    "voice_enabled": True,
+    "voice_enabled": hud_settings["voice_enabled"],
     "listening": False,
     "speaking": False,
     "voice_output_pending": False,
@@ -178,6 +314,26 @@ server_state = {
     "last_response": "",
     "last_error": "",
 }
+
+if AI_AVAILABLE and hud_settings["ai_selection"]:
+    saved_selection = hud_settings["ai_selection"]
+    available_selection = any(
+        item["provider"] == saved_selection["provider"]
+        and item["model"] == saved_selection["model"]
+        for item in ai.model.get_available_ai_models()
+    )
+    if available_selection:
+        try:
+            ai.model.set_ai_selection(
+                saved_selection["provider"],
+                saved_selection["model"],
+            )
+        except ValueError as error:
+            print("LEWIS HUD AI SETTINGS LOAD ERROR:", str(error))
+    else:
+        print(
+            "LEWIS HUD AI SETTINGS LOAD ERROR: saved model is not available"
+        )
 
 
 def update_state(**changes):
@@ -1011,6 +1167,18 @@ class LewisHandler(BaseHTTPRequestHandler):
             self.handle_voice_settings()
             return
 
+        if path == "/api/hud/settings":
+            if self.command == "POST":
+                data = read_json_body(self)
+                if data is None or not isinstance(data, dict):
+                    send_json(self, {"error": "Invalid JSON."}, 400)
+                    return
+                save_hud_settings(data)
+                send_json(self, {"settings": load_hud_settings()}, 200)
+            else:
+                send_json(self, {"settings": load_hud_settings()}, 200)
+            return
+
         send_json(self, {"error": "Not found"}, 404)
 
     # -----------------------------------------------------
@@ -1269,13 +1437,40 @@ class LewisHandler(BaseHTTPRequestHandler):
             send_json(self, {"error": "AI module is unavailable."}, 503)
             return
 
+        provider = data.get("provider")
+        model_name = data.get("model")
+        if not any(
+            item["provider"] == provider and item["model"] == model_name
+            for item in ai.model.get_available_ai_models()
+        ):
+            send_json(
+                self,
+                {"error": "Choose a supported AI provider and model."},
+                400,
+            )
+            return
+
         try:
+            save_hud_settings({
+                "ai_selection": {
+                    "provider": provider,
+                    "model": model_name,
+                },
+            })
             selection = ai.model.set_ai_selection(
-                data.get("provider"),
-                data.get("model"),
+                provider,
+                model_name,
             )
         except ValueError as error:
             send_json(self, {"error": str(error)}, 400)
+            return
+        except OSError as error:
+            print("LEWIS HUD SETTINGS SAVE ERROR:", type(error).__name__)
+            send_json(
+                self,
+                {"error": "Could not save the selected AI model."},
+                500,
+            )
             return
 
         log_event(
@@ -1707,6 +1902,17 @@ class LewisHandler(BaseHTTPRequestHandler):
                 self,
                 {"error": "Provide an 'enabled' boolean."},
                 400,
+            )
+            return
+
+        try:
+            save_hud_settings({"voice_enabled": data["enabled"]})
+        except OSError as error:
+            print("LEWIS HUD SETTINGS SAVE ERROR:", type(error).__name__)
+            send_json(
+                self,
+                {"error": "Could not save voice output preferences."},
+                500,
             )
             return
 
