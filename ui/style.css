@@ -3712,37 +3712,7 @@ body.focus-mode-active {
     padding: 8px clamp(12px, 3vw, 40px) 16px;
 }
 
-/* Focus Mode: Orb status caption positioned below the orb */
-.hud.focus-mode .orb {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.hud.focus-mode .orb::after {
-    content: var(--orb-status, STANDBY);
-    position: absolute;
-    bottom: -24px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--muted);
-    font-size: 9px;
-    letter-spacing: .8px;
-    text-transform: uppercase;
-    white-space: nowrap;
-    padding: 2px 8px;
-    background: color-mix(in srgb, var(--panel) 90%, transparent);
-    border-radius: 12px;
-    min-width: max-content;
-}
-
-.hud.focus-mode .orb-caption {
-    display: block;
-    color: rgba(255, 255, 255, 0.72);
-    font-size: 7px;
-    letter-spacing: 1.8px;
-}
+/* Orb status is displayed in the conversation header, not on the orb. */
 
 .hud.focus-mode .orb {
     width: min(45vw, 57vh, 540px);
@@ -4684,4 +4654,861 @@ body.focus-mode-active {
         opacity: 1;
         transform: scale(1.035);
     }
+}
+
+/* ========================================================================== */
+/* L.E.W.I.S. HUD — Soft Platinum / Graphite palette correction               */
+/* Visual-only overrides. Existing layout, sizing, responsive rules and orb    */
+/* implementation are intentionally left unchanged.                          */
+/* ========================================================================== */
+
+:root {
+    color-scheme: dark;
+
+    /* Neutral graphite surfaces */
+    --bg: #2D2D2D;
+    --bg-deep: #262626;
+    --panel: #3A3A3A;
+    --panel-raised: #434343;
+    --panel-overlay: #363636;
+    --panel-strong: rgba(70, 70, 70, 0.97);
+    --panel-deep: #2F2F2F;
+
+    /* Platinum and silver hierarchy */
+    --line: #616161;
+    --line-soft: #525252;
+    --text: #E4E4E4;
+    --text-strong: #F7F7F7;
+    --muted: #C3C3C3;
+    --dim: #A3A3A3;
+    --silver: #F9F9F9;
+    --silver-shadow: rgba(255, 255, 255, 0.16);
+    --glass: rgba(255, 255, 255, 0.06);
+
+    /* Controls and secondary surfaces */
+    --surface-hover: #4F4F4F;
+    --surface-muted: #3C3C3C;
+    --field-bg: #303030;
+    --code-bg: #292929;
+    --shadow: rgba(0, 0, 0, 0.26);
+
+    /* Soft neutral lighting */
+    --hud-overlay:
+        linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.035) 0%,
+            rgba(255, 255, 255, 0.012) 35%,
+            rgba(0, 0, 0, 0.025) 100%
+        ),
+        radial-gradient(
+            circle at 50% 36%,
+            rgba(255, 255, 255, 0.035) 0%,
+            transparent 62%
+        );
+    --workspace-glow:
+        radial-gradient(
+            circle at center,
+            rgba(255, 255, 255, 0.045) 0%,
+            rgba(255, 255, 255, 0.012) 48%,
+            rgba(0, 0, 0, 0.08) 100%
+        );
+    --panel-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+}
+
+/* Main canvas and application shell */
+body {
+    background: radial-gradient(
+        circle at 50% 42%,
+        #404040 0%,
+        #363636 42%,
+        #2A2A2A 100%
+    );
+    color: var(--text);
+}
+
+.hud {
+    border-color: rgba(126, 126, 126, 0.58);
+    background: rgba(23, 25, 28, 0.94);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.11),
+        var(--panel-shadow);
+}
+
+.hud::before {
+    background: var(--hud-overlay);
+}
+
+.top-bar {
+    border-bottom-color: var(--line);
+    background: rgba(23, 25, 28, 0.86);
+}
+
+.left-panel {
+    border-color: var(--line-soft);
+    background: rgba(18, 20, 23, 0.82);
+}
+
+.right-panel {
+    border-color: var(--line-soft);
+    background: rgba(23, 25, 28, 0.78);
+}
+
+.core-area {
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(238, 238, 238, 0.075) 0%,
+            rgba(58, 58, 58, 0.025) 48%,
+            rgba(23, 23, 23, 0.10) 100%
+        );
+}
+
+.telemetry-footer {
+    border-top-color: var(--line);
+    background: rgba(18, 20, 23, 0.96);
+}
+
+/* Branding, header status and panel controls */
+.brand,
+.brand-name {
+    color: var(--text-strong);
+}
+
+.brand-subtitle,
+.top-status-item strong,
+.top-status-item small,
+.clock,
+.clock small {
+    color: var(--muted);
+}
+
+.top-status-item,
+.top-status-item:last-of-type {
+    border-color: rgba(215, 215, 215, 0.22);
+}
+
+.status-dot,
+#systemStatusItem[data-status="online"] .status-dot,
+.provider-mark,
+.status-icon {
+    color: var(--silver);
+    background-color: #BEBEBE;
+    box-shadow: 0 0 0 2px rgba(238, 238, 238, 0.12);
+}
+
+.provider-mark,
+.status-icon {
+    background: transparent;
+}
+
+.panel-controls button {
+    border-color: var(--line);
+    background: #404040;
+    color: var(--text);
+}
+
+.panel-controls button:hover,
+.panel-controls button[aria-expanded="false"] {
+    border-color: #B5B5B5;
+    background: #515151;
+    color: var(--text-strong);
+}
+
+/* Navigation and sidebar */
+.nav-item {
+    color: #D8D8D8;
+}
+
+.nav-item:hover,
+.nav-item.active {
+    border-color: #7B7B7B;
+    background: linear-gradient(110deg, #4C4C4C, #3E3E3E);
+    color: var(--text-strong);
+}
+
+.nav-icon {
+    color: #D5D5D5;
+}
+
+.sidebar-build {
+    border-top-color: var(--line);
+}
+
+.build-mark {
+    border-color: #7D7D7D;
+    background: #484848;
+    color: #E6E6E6;
+}
+
+.sidebar-build strong,
+.build-state {
+    color: var(--muted);
+}
+
+.left-panel,
+.right-panel,
+.core-area,
+.messages,
+.workspace-content,
+.conversation-list,
+.system-log {
+    scrollbar-color: #7C7C7C transparent;
+}
+
+/* Home content and quick actions */
+.greeting {
+    border-left-color: #D9D9D9;
+}
+
+.greeting h1,
+.greeting h1 span {
+    color: var(--text-strong);
+}
+
+.greeting p,
+.hero-aside p,
+.process-label,
+.section-heading,
+.section-heading > span {
+    color: var(--muted);
+}
+
+.process-label i {
+    background: #BEBEBE;
+}
+
+.process-line {
+    border-color: #7A7A7A;
+    background: #3A3A3A;
+}
+
+.process-line span {
+    background: linear-gradient(90deg, #A5A5A5, #E3E3E3);
+}
+
+.action-card {
+    border-color: #636363;
+    background: linear-gradient(135deg, #484848, #3A3A3A);
+}
+
+.action-card:not(:disabled):hover {
+    border-color: #B5B5B5;
+    background: #515151;
+}
+
+.action-icon {
+    border-color: #717171;
+    background: #515151;
+    color: var(--text-strong);
+}
+
+.action-card strong {
+    color: var(--text-strong);
+}
+
+.action-card small {
+    color: var(--muted);
+}
+
+.section-heading {
+    border-bottom-color: var(--line);
+}
+
+/* Conversation panel, transcript and composer — Soft Platinum / Graphite */
+.conversation {
+    border: 1px solid rgba(174, 184, 194, 0.22);
+    background: linear-gradient(145deg, #252A30 0%, #20242A 54%, #1B1F24 100%);
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.conversation-header {
+    border-bottom: 1px solid rgba(174, 184, 194, 0.14);
+    background: rgba(255, 255, 255, 0.012);
+    color: #B8C0C8;
+}
+
+.conversation-title {
+    color: #DDE2E7;
+}
+
+.conversation-state {
+    display: inline-flex;
+    align-items: center;
+    min-height: 18px;
+    padding: 2px 7px;
+    border: 1px solid rgba(183, 193, 203, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    color: #C3CBD3;
+    font-size: 7px;
+    font-weight: 600;
+    letter-spacing: 0.9px;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+.conversation-state[data-state="processing"],
+.conversation-state[data-state="thinking"],
+.conversation-state[data-state="speaking"],
+.conversation-state[data-state="listening"],
+.conversation-state[data-state="interrupting"],
+.conversation-state[data-state="tool-execution"] {
+    border-color: rgba(220, 227, 234, 0.34);
+    background: rgba(220, 227, 234, 0.075);
+    color: #F0F3F6;
+}
+
+.conversation-state[data-state="offline"],
+.conversation-state[data-state="error"] {
+    border-color: rgba(180, 188, 196, 0.25);
+    background: rgba(180, 188, 196, 0.055);
+    color: #D0D6DC;
+}
+
+.conversation .expand-chat-button,
+.conversation #conversationSelect,
+.conversation .model-controls select,
+.conversation .voice-button,
+.conversation .voice-toggle-label {
+    border-color: rgba(170, 181, 192, 0.22);
+    background: #252A30;
+    color: #D7DDE3;
+}
+
+.conversation .expand-chat-button:hover:not(:disabled),
+.conversation #conversationSelect:focus,
+.conversation .model-controls select:focus,
+.conversation .voice-button:hover:not(:disabled) {
+    border-color: rgba(224, 231, 237, 0.48);
+    background: #30363E;
+    color: #F5F7F9;
+}
+
+.conversation .expand-chat-button:disabled,
+.conversation .voice-button:disabled {
+    opacity: 0.48;
+}
+
+.conversation .messages {
+    background: transparent;
+}
+
+.conversation .message {
+    border-radius: 9px;
+}
+
+.conversation .lewis-message {
+    border: 1px solid rgba(166, 177, 188, 0.16);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.conversation .user-message {
+    border: 1px solid rgba(184, 195, 206, 0.2);
+    background: rgba(125, 137, 150, 0.17);
+}
+
+.conversation .system-message {
+    border-left: 2px solid rgba(194, 203, 212, 0.46);
+    background: rgba(11, 14, 18, 0.38);
+}
+
+.conversation .message-label {
+    color: #AEB8C2;
+}
+
+.conversation .user-message .message-label {
+    color: #F0F3F6;
+}
+
+.conversation .message-text {
+    color: #E1E6EB;
+}
+
+.conversation .message-text h2,
+.conversation .message-text h3,
+.conversation .message-text h4,
+.conversation .message-text a {
+    color: #F1F4F7;
+}
+
+.conversation .message-text code,
+.conversation .message-text pre {
+    border-color: rgba(170, 181, 192, 0.22);
+    background: #171B20;
+    color: #E9EDF1;
+}
+
+.conversation .message-text blockquote {
+    border-left-color: #89939D;
+    color: #C8D0D8;
+}
+
+.conversation .empty-conversation {
+    color: #AAB3BC;
+}
+
+.conversation .input-area {
+    border-color: rgba(170, 181, 192, 0.25);
+    background: #171B20;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.conversation .input-area:focus-within {
+    border-color: rgba(221, 229, 236, 0.48);
+    box-shadow: 0 0 0 1px rgba(221, 229, 236, 0.1);
+}
+
+.conversation #commandInput {
+    color: #EDF1F4;
+    background: transparent;
+}
+
+.conversation #commandInput::placeholder,
+.conversation .composer-hint {
+    color: #98A2AC;
+}
+
+.conversation #sendButton {
+    border-color: rgba(188, 198, 208, 0.3);
+    background: #2A3037;
+    color: #F2F5F7;
+}
+
+.conversation #sendButton:hover:not(:disabled) {
+    border-color: rgba(231, 237, 242, 0.52);
+    background: #373E47;
+}
+
+.conversation .model-controls,
+.conversation .voice-controls {
+    border-color: rgba(170, 181, 192, 0.22);
+    background: #20252B;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.34);
+}
+
+.conversation .model-controls label,
+.conversation .model-controls #aiModelSelectionStatus,
+.conversation .model-tools > summary,
+.conversation .voice-tools > summary {
+    color: #AEB8C2;
+}
+
+.conversation .voice-toggle-label {
+    border-color: rgba(170, 181, 192, 0.22);
+}
+
+.conversation .voice-error {
+    color: #D9E0E6;
+}
+
+/* Focus Mode: use a high-specificity graphite surface so it cannot inherit
+   the older light-gray focus panel background. */
+.hud.focus-mode .conversation {
+    border-color: rgba(174, 184, 194, 0.22);
+    background: linear-gradient(145deg, #252A30 0%, #20242A 54%, #1B1F24 100%);
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.hud.focus-mode .conversation-header {
+    border-bottom-color: rgba(174, 184, 194, 0.14);
+    background: rgba(255, 255, 255, 0.012);
+}
+
+.hud.focus-mode .conversation .lewis-message {
+    border-color: rgba(166, 177, 188, 0.16);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.hud.focus-mode .conversation .user-message {
+    border-color: rgba(184, 195, 206, 0.2);
+    background: rgba(125, 137, 150, 0.17);
+}
+
+.hud.focus-mode .conversation .system-message {
+    border-left-color: rgba(194, 203, 212, 0.46);
+    background: rgba(11, 14, 18, 0.38);
+}
+
+.hud.focus-mode .conversation .input-area {
+    border-color: rgba(170, 181, 192, 0.25);
+    background: #171B20;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.hud.focus-mode .conversation .input-area:focus-within {
+    border-color: rgba(221, 229, 236, 0.48);
+    box-shadow: 0 0 0 1px rgba(221, 229, 236, 0.1);
+}
+
+.hud.focus-mode .conversation #commandInput {
+    background: transparent;
+    color: #EDF1F4;
+}
+
+.hud.focus-mode .conversation #sendButton {
+    border-color: rgba(188, 198, 208, 0.3);
+    background: #2A3037;
+    color: #F2F5F7;
+}
+
+.hud.focus-mode .conversation #sendButton:hover:not(:disabled) {
+    border-color: rgba(231, 237, 242, 0.52);
+    background: #373E47;
+}
+
+/* Full HUD metrics and diagnostic cards */
+.diagnostic-card {
+    border-color: #646464;
+    background: linear-gradient(145deg, #424242, #363636);
+}
+
+.card-heading h2,
+.telemetry-block h2,
+.task-entry strong,
+.provider-detail strong,
+.memory-detail strong {
+    color: #E7E7E7;
+}
+
+.card-heading > span,
+.task-entry small,
+.provider-detail small,
+.memory-detail small,
+.card-note,
+.voice-directions,
+.metric small,
+.system-log-entry time,
+.empty-log {
+    color: var(--muted);
+}
+
+.task-entry time,
+.state-tag,
+.voice-directions b,
+.metric-icon,
+.metric strong,
+.task-progress-copy,
+.system-log-entry {
+    color: #D9D9D9;
+}
+
+.overview-meter,
+.progress-track {
+    border-color: #6B6B6B;
+    background: #2F2F2F;
+}
+
+.overview-meter i,
+.progress-track i {
+    background: #D4D4D4;
+}
+
+.task-indicator {
+    border-color: #C5C5C5;
+}
+
+.task-indicator[data-active="true"] {
+    border-color: #E8E8E8;
+    background: conic-gradient(#DADADA 0 30%, transparent 30% 100%);
+}
+
+.state-tag,
+.detail-icon,
+.voice-mic {
+    border-color: #717171;
+    color: #E4E4E4;
+}
+
+.waveform i,
+.mini-meter i {
+    background: #D5D5D5;
+}
+
+.mini-meter {
+    background: #4C4C4C;
+}
+
+.notification-count {
+    background: #7C7C7C;
+    color: #FFFFFF;
+}
+
+.metric {
+    border-right-color: #5A5A5A;
+}
+
+.telemetry-block + .telemetry-block {
+    border-left-color: var(--line);
+}
+
+/* Workspace views, including Settings */
+.workspace-view {
+    border-color: #717171;
+    background: #3A3A3A;
+    color: var(--text);
+}
+
+.workspace-view-header {
+    border-bottom-color: var(--line);
+}
+
+.workspace-view-header h2,
+.workspace-settings-category > h3,
+.workspace-settings-controls > h4,
+.workspace-settings-card h3,
+.workspace-settings-preferences h3,
+.workspace-project-heading h3,
+.workspace-record h3 {
+    color: var(--text-strong);
+}
+
+.workspace-view-header p,
+.workspace-view-header .eyebrow,
+.workspace-status-message,
+.workspace-note,
+.workspace-empty,
+.workspace-search,
+.workspace-filter,
+.workspace-model-panel label,
+.workspace-settings-card p,
+.workspace-preference-field,
+.memory-edit-field,
+.workspace-system-info dt,
+.workspace-diagnostic-entry time {
+    color: var(--muted);
+}
+
+.workspace-settings-category,
+.workspace-settings-card,
+.workspace-settings-preferences,
+.workspace-model-panel,
+.workspace-record {
+    border-color: var(--line);
+    background: #424242;
+}
+
+.workspace-settings-controls {
+    border-color: var(--line-soft);
+    background: #363636;
+}
+
+.workspace-unsupported {
+    border-left-color: #AAAAAA;
+    background: #404040;
+    color: #CBCBCB;
+}
+
+.workspace-setting-status,
+.workspace-system-info dd,
+.workspace-record p,
+.workspace-preference-row {
+    color: var(--text);
+}
+
+.workspace-system-info,
+.workspace-system-info dt,
+.workspace-system-info dd,
+.workspace-diagnostic-entry {
+    border-color: var(--line-soft);
+}
+
+.workspace-diagnostic-entry {
+    color: var(--text);
+}
+
+.workspace-search input,
+.workspace-filter select,
+.workspace-model-select,
+.workspace-preference-field select,
+.memory-edit-field input,
+.memory-edit-field select,
+.memory-edit-field textarea,
+.conversation-search input,
+.conversation-organization-editor input,
+.conversation-rename-editor input {
+    border-color: #717171;
+    background: #2F2F2F;
+    color: var(--text-strong);
+}
+
+.workspace-button {
+    border-color: #717171;
+    background: #4C4C4C;
+    color: var(--text-strong);
+}
+
+.workspace-button:hover:not(:disabled) {
+    border-color: #C6C6C6;
+    background: #5B5B5B;
+}
+
+.conversation-search-result {
+    border-color: var(--line);
+    background: #424242;
+    color: var(--text);
+}
+
+.conversation-search-result:hover {
+    border-color: #B7B7B7;
+}
+
+/* Conversation history drawer */
+.conversation-drawer {
+    border-color: #727272;
+    background: linear-gradient(145deg, #414141, #333333);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
+}
+
+.conversation-drawer-header h2,
+.conversation-drawer-toolbar {
+    color: var(--text-strong);
+}
+
+.conversation-drawer-header p,
+.conversation-drawer-footer,
+.conversation-drawer-status,
+.conversation-drawer-note,
+.conversation-list-meta,
+.conversation-list-empty {
+    color: var(--muted);
+}
+
+.conversation-list-item {
+    border-color: var(--line-soft);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.conversation-list-item.active {
+    border-color: #A8A8A8;
+    background: rgba(228, 228, 228, 0.09);
+}
+
+.conversation-list-title {
+    color: var(--text-strong);
+}
+
+.conversation-list-actions button,
+.conversation-rename-editor button,
+.conversation-organization-editor button {
+    border-color: #717171;
+    background: #414141;
+    color: #DADADA;
+}
+
+.conversation-list-actions button:hover:not(:disabled),
+.conversation-rename-editor button:hover:not(:disabled),
+.conversation-organization-editor button:hover:not(:disabled) {
+    border-color: #C6C6C6;
+    background: #585858;
+    color: var(--text-strong);
+}
+
+.conversation-rename-editor input {
+    border-color: #717171;
+    background: #2F2F2F;
+    color: var(--text-strong);
+}
+
+.conversation-rename-editor .conversation-rename-save {
+    border-color: #ADADAD;
+    color: var(--text-strong);
+}
+
+/* Confirmation dialog: keep destructive actions neutral, not red */
+.hud-confirmation-dialog {
+    border-color: #717171;
+    background: #3A3A3A;
+    color: var(--text);
+}
+
+.hud-confirmation-dialog::backdrop,
+.conversation-drawer-backdrop,
+.workspace-backdrop {
+    background: rgba(14, 14, 14, 0.68);
+}
+
+.confirmation-eyebrow,
+.hud-confirmation-dialog p,
+.confirmation-status {
+    color: var(--muted);
+}
+
+.hud-confirmation-dialog h2,
+.hud-confirmation-dialog #deleteConversationName,
+.hud-confirmation-dialog .confirmation-warning {
+    color: var(--text-strong);
+}
+
+.confirmation-actions button {
+    border-color: #717171;
+    background: #4C4C4C;
+    color: var(--text-strong);
+}
+
+.confirmation-actions button:hover:not(:disabled) {
+    border-color: #C6C6C6;
+    background: #5B5B5B;
+}
+
+.confirmation-actions .destructive {
+    border-color: #A2A2A2;
+    background: #616161;
+    color: #FFFFFF;
+}
+
+.confirmation-actions .destructive:hover:not(:disabled) {
+    border-color: #D9D9D9;
+    background: #717171;
+}
+
+/* State/error feedback remains legible while staying monochrome */
+.workspace-status-message[data-state="error"],
+.workspace-setting-status[data-state="error"],
+.conversation-drawer-status[data-state="error"],
+.confirmation-status[data-state="error"],
+.conversation-list-actions .conversation-delete-button {
+    color: #D6D6D6;
+}
+
+.lewis-offline #systemStatusItem[data-status="offline"] strong {
+    color: #D6D6D6;
+}
+
+/* Shared control details; no dimensions or layout properties are changed. */
+input,
+select,
+textarea {
+    border-color: #717171;
+    color: var(--text-strong);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #B5B5B5;
+    opacity: 1;
+}
+
+select option {
+    background: #363636;
+    color: var(--text-strong);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid #D9D9D9;
+    outline-offset: 2px;
+}
+
+::selection {
+    background: #B5B5B5;
+    color: #252525;
 }

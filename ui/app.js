@@ -441,6 +441,7 @@ const ORB_STATE_LABELS = Object.freeze({
     "tool-execution": "EXECUTING"
 });
 
+
 function setOrbState(state) {
     if (!coreOrb) return;
 
@@ -452,17 +453,17 @@ function setOrbState(state) {
         : "idle";
 
     coreOrb.dataset.state = activeState;
-    coreOrb.style.setProperty("--orb-status", ORB_STATE_LABELS[activeState] || "STANDBY");
-    updateAdaptiveHudContext();
-
-    const label = document.getElementById("orbStatusLabel");
+    coreOrb.style.setProperty(
+        "--orb-status",
+        ORB_STATE_LABELS[activeState] || "STANDBY"
+    );
 
     coreOrb.setAttribute(
         "aria-label",
         `LEWIS assistant ${ORB_STATE_LABELS[activeState]}`
     );
 
-    if (label) label.textContent = ORB_STATE_LABELS[activeState];
+    updateAdaptiveHudContext();
 }
 
 // ==================================================
